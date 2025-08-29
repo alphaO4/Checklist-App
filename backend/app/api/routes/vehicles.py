@@ -2,14 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from typing import Optional
+from datetime import datetime
 
 from ...db.session import get_db
 from ...models.vehicle import Fahrzeug, FahrzeugGruppe
 from ...models.vehicle_type import FahrzeugTyp
+from ...models.checklist import TuvTermin
 from ...models.user import Benutzer
 from ...schemas.vehicle import (
     Fahrzeug as FahrzeugSchema, FahrzeugCreate, FahrzeugUpdate, FahrzeugList, FahrzeugWithGroup
 )
+from ...schemas.tuv import TuvTerminCreate, TuvTerminUpdate
 from ...core.deps import get_current_user
 
 router = APIRouter()
@@ -104,10 +107,11 @@ def get_vehicle(
     db: Session = Depends(get_db),
     current_user: Benutzer = Depends(get_current_user)
 ):
-    """Get vehicle by ID with group information"""
+    """Get vehicle by ID with group information and TÜV data"""
     vehicle = db.query(Fahrzeug).options(
         joinedload(Fahrzeug.fahrzeuggruppe),
-        joinedload(Fahrzeug.fahrzeugtyp)
+        joinedload(Fahrzeug.fahrzeugtyp),
+        joinedload(Fahrzeug.tuv_termine)
     ).filter(
         Fahrzeug.id == vehicle_id
     ).first()
@@ -194,6 +198,155 @@ def delete_vehicle(
     db.delete(vehicle)
     db.commit()
     return {"detail": "Fahrzeug gelöscht"}
+
+
+# TÜV management for vehicles
+@router.get("/{vehicle_id}/tuv")
+def get_vehicle_tuv(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    current_user: Benutzer = Depends(get_current_user)
+):
+    """Get TÜV information for a specific vehicle"""
+    vehicle = db.get(Fahrzeug, vehicle_id)
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fahrzeug nicht gefunden"
+        )
+    
+    tuv_termin = db.query(TuvTermin).filter(TuvTermin.fahrzeug_id == vehicle_id).first()
+    
+    if not tuv_termin:
+        return {"vehicle_id": vehicle_id, "tuv_data": None}
+    
+    from datetime import datetime
+    now = datetime.now()
+    days_remaining = (tuv_termin.ablauf_datum - now).days if tuv_termin.ablauf_datum is not None else None
+    
+    tuv_status = "unknown"
+    if days_remaining is not None:
+        if days_remaining < 0:
+            tuv_status = "expired"
+        elif days_remaining <= 30:
+            tuv_status = "warning"
+        else:
+            tuv_status = "current"
+    
+    return {
+        "vehicle_id": vehicle_id,
+        "tuv_data": {
+            "id": tuv_termin.id,
+            "ablauf_datum": tuv_termin.ablauf_datum,
+            "letzte_pruefung": tuv_termin.letzte_pruefung,
+            "status": tuv_status,
+            "days_remaining": days_remaining,
+            "created_at": tuv_termin.created_at
+        }
+    }
+
+
+@router.post("/{vehicle_id}/tuv")
+def create_vehicle_tuv(
+    vehicle_id: int,
+    tuv_data: TuvTerminCreate,
+    db: Session = Depends(get_db),
+    current_user: Benutzer = Depends(get_current_user)
+):
+    """Create or update TÜV information for a vehicle"""
+    check_write_permission(current_user)
+    
+    vehicle = db.get(Fahrzeug, vehicle_id)
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fahrzeug nicht gefunden"
+        )
+    
+    # Check if TÜV record already exists
+    existing_tuv = db.query(TuvTermin).filter(TuvTermin.fahrzeug_id == vehicle_id).first()
+    
+    if existing_tuv:
+        # Update existing record
+        for field, value in tuv_data.model_dump(exclude_unset=True).items():
+            if field != 'fahrzeug_id':  # Don't update fahrzeug_id
+                setattr(existing_tuv, field, value)
+        
+        db.commit()
+        db.refresh(existing_tuv)
+        return {"detail": "TÜV-Daten aktualisiert", "tuv_id": existing_tuv.id}
+    else:
+        # Create new record
+        tuv_data_dict = tuv_data.model_dump()
+        tuv_data_dict['fahrzeug_id'] = vehicle_id  # Ensure correct vehicle ID
+        
+        db_tuv = TuvTermin(**tuv_data_dict)
+        db.add(db_tuv)
+        db.commit()
+        db.refresh(db_tuv)
+        return {"detail": "TÜV-Daten erstellt", "tuv_id": db_tuv.id}
+
+
+@router.put("/{vehicle_id}/tuv")
+def update_vehicle_tuv(
+    vehicle_id: int,
+    tuv_data: TuvTerminUpdate,
+    db: Session = Depends(get_db),
+    current_user: Benutzer = Depends(get_current_user)
+):
+    """Update TÜV information for a vehicle"""
+    check_write_permission(current_user)
+    
+    vehicle = db.get(Fahrzeug, vehicle_id)
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fahrzeug nicht gefunden"
+        )
+    
+    tuv_termin = db.query(TuvTermin).filter(TuvTermin.fahrzeug_id == vehicle_id).first()
+    if not tuv_termin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="TÜV-Daten für dieses Fahrzeug nicht gefunden"
+        )
+    
+    update_data = tuv_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if field != 'fahrzeug_id':  # Don't update fahrzeug_id
+            setattr(tuv_termin, field, value)
+    
+    db.commit()
+    db.refresh(tuv_termin)
+    return {"detail": "TÜV-Daten aktualisiert", "tuv_id": tuv_termin.id}
+
+
+@router.delete("/{vehicle_id}/tuv")
+def delete_vehicle_tuv(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    current_user: Benutzer = Depends(get_current_user)
+):
+    """Delete TÜV information for a vehicle"""
+    check_write_permission(current_user)
+    
+    vehicle = db.get(Fahrzeug, vehicle_id)
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fahrzeug nicht gefunden"
+        )
+    
+    tuv_termin = db.query(TuvTermin).filter(TuvTermin.fahrzeug_id == vehicle_id).first()
+    if not tuv_termin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="TÜV-Daten für dieses Fahrzeug nicht gefunden"
+        )
+    
+    db.delete(tuv_termin)
+    db.commit()
+    return {"detail": "TÜV-Daten gelöscht"}
 
 
 @router.get("/types/available")
