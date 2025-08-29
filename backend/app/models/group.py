@@ -9,8 +9,10 @@ class Gruppe(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), unique=True, nullable=False)
     gruppenleiter_id = Column(Integer, ForeignKey("benutzer.id"), nullable=True)
+    fahrzeuggruppe_id = Column(Integer, ForeignKey("fahrzeuggruppen.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     # Relationships
-    gruppenleiter = relationship("Benutzer", back_populates="geleitete_gruppen", foreign_keys=[gruppenleiter_id])
-    fahrzeuggruppen = relationship("FahrzeugGruppe", back_populates="gruppe", cascade="all, delete-orphan")
+    benutzer = relationship("Benutzer", primaryjoin="Gruppe.id == Benutzer.gruppe_id", back_populates="gruppe")
+    gruppenleiter = relationship("Benutzer", primaryjoin="Gruppe.gruppenleiter_id == Benutzer.id", back_populates="geleitete_gruppen")
+    fahrzeuggruppe = relationship("FahrzeugGruppe", primaryjoin="Gruppe.fahrzeuggruppe_id == FahrzeugGruppe.id", back_populates="gruppe", uselist=False)

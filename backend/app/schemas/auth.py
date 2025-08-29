@@ -26,6 +26,7 @@ class User(BaseModel):
     username: str
     email: EmailStr
     rolle: str
+    gruppe_id: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -37,12 +38,14 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     rolle: str = "benutzer"
+    gruppe_id: Optional[int] = None
 
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     rolle: Optional[str] = None
+    gruppe_id: Optional[int] = None
 
 
 class UserChangePassword(BaseModel):

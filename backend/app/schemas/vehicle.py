@@ -6,7 +6,6 @@ from .vehicle_type import FahrzeugTyp
 
 class FahrzeugGruppeBase(BaseModel):
     name: str
-    gruppe_id: int
 
 
 class FahrzeugGruppeCreate(FahrzeugGruppeBase):
@@ -15,7 +14,6 @@ class FahrzeugGruppeCreate(FahrzeugGruppeBase):
 
 class FahrzeugGruppeUpdate(BaseModel):
     name: Optional[str] = None
-    gruppe_id: Optional[int] = None
 
 
 class FahrzeugGruppe(FahrzeugGruppeBase):

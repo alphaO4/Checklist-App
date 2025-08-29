@@ -3,6 +3,6 @@ from fastapi import APIRouter
 router = APIRouter()
 
 
-@router.get("/healthz", tags=["health"])
-def healthz():
+@router.get("/health", tags=["health"])
+def health():
     return {"status": "ok"}

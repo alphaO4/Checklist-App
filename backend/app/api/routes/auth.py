@@ -6,6 +6,7 @@ from typing import Optional
 
 from ...db.session import get_db
 from ...models.user import Benutzer
+from ...models.group import Gruppe
 from ...schemas.auth import (
     LoginRequest, Token, LoginResponse, User, UserCreate, UserUpdate, 
     UserChangePassword, UserList, ApiError
@@ -87,12 +88,22 @@ def create_user(
             detail="Passwort muss mindestens 8 Zeichen lang sein"
         )
     
+    # Check if gruppe exists if provided
+    if user_data.gruppe_id:
+        gruppe = db.get(Gruppe, user_data.gruppe_id)
+        if not gruppe:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Gruppe nicht gefunden"
+            )
+    
     try:
         db_user = Benutzer(
             username=user_data.username,
             email=user_data.email,
             password_hash=hash_password(user_data.password),
-            rolle=user_data.rolle
+            rolle=user_data.rolle,
+            gruppe_id=user_data.gruppe_id
         )
         db.add(db_user)
         db.commit()
@@ -172,6 +183,15 @@ def update_user(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Ungültige Rolle. Erlaubt: {', '.join(valid_roles)}"
+            )
+    
+    # Check if gruppe exists if provided
+    if user_data.gruppe_id:
+        gruppe = db.get(Gruppe, user_data.gruppe_id)
+        if not gruppe:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Gruppe nicht gefunden"
             )
     
     try:

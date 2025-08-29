@@ -14,7 +14,8 @@ def create_sample_data(db: Session):
     # Create sample groups
     sample_gruppe = Gruppe(
         name="Feuerwehr Muster",
-        gruppenleiter_id=None  # Will be set after creating gruppenleiter
+        gruppenleiter_id=None,  # Will be set after creating gruppenleiter
+        fahrzeuggruppe_id=None  # Will be set after creating fahrzeuggruppe
     )
     db.add(sample_gruppe)
     db.flush()
@@ -54,7 +55,8 @@ def create_sample_data(db: Session):
             username="gruppenleiter",
             email="leiter@feuerwehr-muster.de",
             password_hash=hash_password("leiter123"),
-            rolle="gruppenleiter"
+            rolle="gruppenleiter",
+            gruppe_id=sample_gruppe.id
         )
         users_to_create.append(gruppenleiter)
     else:
@@ -66,7 +68,8 @@ def create_sample_data(db: Session):
             username="benutzer",
             email="benutzer@feuerwehr-muster.de",
             password_hash=hash_password("user123"),
-            rolle="benutzer"
+            rolle="benutzer",
+            gruppe_id=sample_gruppe.id
         )
         users_to_create.append(benutzer)
     else:
@@ -77,8 +80,16 @@ def create_sample_data(db: Session):
         db.add_all(users_to_create)
         db.flush()
     
-    # Update gruppe with gruppenleiter
+    # Create vehicle groups (independent of user groups)
+    fahrzeuggruppe = FahrzeugGruppe(
+        name="Löschfahrzeuge"
+    )
+    db.add(fahrzeuggruppe)
+    db.flush()
+
+    # Update gruppe with gruppenleiter and fahrzeuggruppe assignment
     sample_gruppe.gruppenleiter_id = gruppenleiter.id
+    sample_gruppe.fahrzeuggruppe_id = fahrzeuggruppe.id
     
     # Create vehicle types first
     vehicle_types_data = [
@@ -107,14 +118,7 @@ def create_sample_data(db: Session):
     mtf_type = next(vt for vt in vehicle_types if vt.name == "MTF")
     tlf_type = next(vt for vt in vehicle_types if vt.name == "TLF")
     dlk_type = next(vt for vt in vehicle_types if vt.name == "DLK")
-
-    # Create vehicle groups
-    fahrzeuggruppe = FahrzeugGruppe(
-        name="Löschfahrzeuge",
-        gruppe_id=sample_gruppe.id
-    )
-    db.add(fahrzeuggruppe)
-    db.flush()
+    sample_gruppe.fahrzeuggruppe_id = fahrzeuggruppe.id
 
     # Create sample vehicles
     vehicles = [

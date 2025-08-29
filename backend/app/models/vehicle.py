@@ -8,11 +8,10 @@ class FahrzeugGruppe(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    gruppe_id = Column(Integer, ForeignKey("gruppen.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     # Relationships
-    gruppe = relationship("Gruppe", back_populates="fahrzeuggruppen")
+    gruppe = relationship("Gruppe", primaryjoin="FahrzeugGruppe.id == Gruppe.fahrzeuggruppe_id", back_populates="fahrzeuggruppe")
     fahrzeuge = relationship("Fahrzeug", back_populates="fahrzeuggruppe", cascade="all, delete-orphan")
     checklisten = relationship("Checkliste", back_populates="fahrzeuggruppe", cascade="all, delete-orphan")
 

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from .core.settings import settings
-from .api.routes import health, auth, ws
+from .api.routes import health, auth, ws, groups, fahrzeuggruppen
 from .api.routes import vehicles, tuv, checklists, sync, vehicle_types
 from .db.session import Base, engine
 from sqlalchemy.orm import Session
@@ -36,6 +36,8 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(ws.router)
+app.include_router(groups.router, prefix="/groups", tags=["groups"])
+app.include_router(fahrzeuggruppen.router, prefix="/fahrzeuggruppen", tags=["fahrzeuggruppen"])
 app.include_router(vehicles.router, prefix="/vehicles", tags=["vehicles"])
 app.include_router(vehicle_types.router, prefix="/vehicle-types", tags=["vehicle-types"])
 app.include_router(tuv.router, prefix="/tuv", tags=["tuv"])
