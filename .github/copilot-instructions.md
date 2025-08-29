@@ -4,12 +4,12 @@
 This is a **Vehicle Inspection Checklist App** for German fire departments (Feuerwehr), enabling organized vehicle safety checks with TÜV (vehicle inspection) deadline tracking.
 
 ## Current Implementation Status
-- ✅ **Frontend**: Functional Electron app with TypeScript, offline-capable UI
-- ❌ **Backend**: Not implemented (empty `/backend` directory)
-- ✅ **Offline Storage**: SQLite implementation for local data (`frontend/src/main/store/sqlite.ts`)
+- ✅ **Frontend**: Functional Electron app with TypeScript main process, vanilla JS renderer
+- ✅ **Backend**: Full FastAPI implementation with SQLAlchemy models and authentication  
+- ✅ **Database**: SQLite for development, complete domain models implemented
 - ✅ **IPC Architecture**: Secure main/renderer communication with preload script
-- ⚠️ **Real-time Sync**: Structured but not connected to backend
-- ⚠️ **Authentication**: UI implemented, backend integration pending
+- ✅ **CRUD Operations**: Vehicle types, vehicles, groups, TÜV tracking all functional
+- ✅ **Authentication**: JWT-based auth with role hierarchy (Benutzer → Gruppenleiter → Organisator → Admin)
 
 ## Architecture & Tech Stack
 - **Frontend**: Electron (TypeScript) with HTML/CSS renderer
@@ -45,258 +45,182 @@ item_ergebnisse: id, ausfuehrung_id, item_id, status (ok/fehler/nicht_pruefbar),
 -- Audit log
 audit_log: id, benutzer_id, aktion, ressource_typ, ressource_id, alte_werte, neue_werte, timestamp
 ```
+- **Frontend**: Electron (TypeScript main + vanilla JS renderer) 
+- **Backend**: FastAPI + SQLAlchemy + SQLite (dev) / PostgreSQL (prod)
+- **IPC**: Secure contextBridge pattern with preload script
+- **UI Pattern**: Component-based vanilla JS with inline `onclick` handlers
+- **State**: Custom stores (`appStore`, `dataManager`) with caching layer
+- **Styling**: CSS custom properties with fire department theme
+
 
 ## Critical Development Workflows
 
 ### Building & Running
 ```bash
-# Frontend development
-cd frontend
-npm install                    # Install dependencies
-npm run dev                   # Development with hot reload
-npm run build                 # Production build (required before start)
-npm start                     # Launch Electron app
+# Backend (start first)
+cd backend
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# ⚠️ CRITICAL: Do NOT run any other commands in this terminal window!
+# The backend process must remain running continuously during development.
 
-# Build outputs
-dist/                         # TypeScript compilation output
-dist/main/main.js            # Main process entry point
-dist/renderer/               # Copied HTML/CSS files
+# Frontend (requires backend running, always specify repository path)
+cd "e:\Github\Checklist-App\frontend"     # Always use full repository path
+npm run build                             # Required: Compile TS → JS, copy assets to dist/
+npm start                                 # Launch Electron (runs prestart build automatically)
+npm run dev                               # Watch mode with concurrently
 ```
 
-### Key File Structure & Patterns
+### Testing
+```bash
+# Backend API tests (backend must be running)
+cd backend
+python test_api.py                        # Basic API functionality tests
+python test_vehicle_editing.py           # Vehicle management tests
+# ⚠️ Frontend testing framework not yet implemented
+```
+
+### Project Structure
 ```
 frontend/src/
 ├── main/                    # Main process (Node.js context)
-│   ├── main.ts             # App lifecycle, window management, security
-│   ├── preload.ts          # Secure API exposure via contextBridge  
-│   ├── ipc/handlers.ts     # IPC request handlers
-│   └── store/sqlite.ts     # Offline SQLite operations
-├── renderer/               # Renderer process (Web context)
-│   ├── index.html          # Main UI with German content
-│   ├── js/renderer.js      # Vanilla JS app logic (no framework)
-│   └── styles/main.css     # Fire department themed styles
-└── shared/types.ts         # TypeScript interfaces for domain model
+│   ├── main.ts             # App lifecycle, window creation, security CSP
+│   ├── preload.ts          # contextBridge API exposure (electronAPI)
+│   ├── backend.ts          # HTTP client for FastAPI communication
+│   └── ipc/handlers.ts     # IPC request/response handlers
+├── renderer/               # Renderer process (Web context) 
+│   ├── index.html          # SPA with German UI, includes all component scripts
+│   ├── js/renderer.js      # Main app controller, navigation, authentication
+│   ├── components/         # Page components (vanilla JS classes)
+│   ├── stores/             # dataManager (caching), appStore (state), authManager
+│   └── styles/main.css     # Fire department red theme, CSS custom properties
+backend/app/
+├── main.py                 # FastAPI app, CORS, router includes
+├── models/                 # SQLAlchemy domain models (German naming)
+├── api/routes/             # REST endpoints by feature
+├── core/                   # Settings, security, dependencies  
+└── services/               # Business logic, seed data
 ```
 
-### Core Implementation Patterns
+## Core Implementation Patterns
 
-#### Secure IPC Communication
-```typescript
-// preload.ts - Only expose safe APIs
-contextBridge.exposeInMainWorld('electronAPI', {
-  saveOffline: (data) => ipcRenderer.invoke('save-checklist-offline', data),
-  onTuvAlert: (callback) => ipcRenderer.on('tuv-alert', callback)
-});
-
-// renderer.js - Access via window.electronAPI
-if (typeof window.electronAPI !== 'undefined') {
-  await window.electronAPI.saveOffline(checklistData);
-}
-```
-
-#### Offline-First Data Management
-```typescript
-// SQLite schema in store/sqlite.ts
-checklists: id, fahrzeug_id, name, items (JSON), status, last_modified
-offline_actions: id, type, data (JSON), timestamp, retry_count, synced
-
-// Usage pattern: Save locally first, sync later
-await offlineStore.saveChecklist(data);
-await offlineStore.queueAction(syncAction);
-```
-
-#### German Domain Terminology
-- Use German terms consistently: `Fahrzeug`, `Gruppe`, `TÜV`, `Checkliste`
-- Database/types: snake_case (`fahrzeug_id`, `gruppe_id`)
-- UI text: Native German (`Anmeldung`, `Fahrzeugprüfung`, `TÜV-Termine`)
-- Status values: German (`ok`, `fehler`, `nicht_pruefbar`)
-
-### Security & Production Considerations
-- **Context Isolation**: Always `contextIsolation: true`, `nodeIntegration: false`
-- **CSP**: Restrictive Content-Security-Policy in HTML
-- **Window Management**: Prevent unauthorized window creation
-- **Draggable Header**: `-webkit-app-region: drag` for custom title bar
-
-### Integration Points (Planned)
-- **Backend API**: `http://localhost:8000` (see `.env.example`)
-- **WebSocket Events**: Defined in `shared/types.ts` (not implemented)
-- **Sync Strategy**: Queue offline actions, retry on connection restore
-
-Refer to `Notes.md` for complete feature requirements and German terminology.
-
-## Project Structure (Planned)
-```
-backend/          # FastAPI application
-frontend/         # Electron app
-shared/           # Common types/schemas
-docs/             # API documentation
-docker/           # Deployment configs
-```
-
-### Electron Development Patterns
-
-#### Project Structure
-```
-frontend/
-├── src/
-│   ├── main/           # Main process (Node.js)
-│   │   ├── main.ts     # App lifecycle, window management
-│   │   ├── ipc/        # IPC handlers for backend communication
-│   │   └── store/      # Local SQLite for offline data
-│   ├── renderer/       # Renderer process (Web)
-│   │   ├── components/ # Vue/React components
-│   │   ├── pages/      # Main app pages
-│   │   ├── stores/     # State management (Pinia/Zustand)
-│   │   └── utils/      # WebSocket client, API calls
-│   └── shared/         # Types shared between processes
-├── assets/             # Icons, images
-└── dist/              # Built application
-```
-
-#### Key Electron Patterns
-```typescript
-// Main process: Window management & offline storage
-// main/main.ts
-import { app, BrowserWindow, ipcMain } from 'electron';
-import { setupOfflineStore } from './store/sqlite';
-
-// Always use contextIsolation and disable nodeIntegration
-const createWindow = () => {
-  const win = new BrowserWindow({
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      preload: path.join(__dirname, 'preload.js')
-    }
-  });
-};
-
-// IPC for secure communication between processes
-// main/ipc/checklist-handlers.ts
-ipcMain.handle('save-checklist-offline', async (event, data) => {
-  return await offlineStore.saveChecklist(data);
-});
-
-// Preload script: Expose safe APIs to renderer
-// main/preload.ts
-contextBridge.exposeInMainWorld('electronAPI', {
-  saveOffline: (data) => ipcRenderer.invoke('save-checklist-offline', data),
-  onTuvAlert: (callback) => ipcRenderer.on('tuv-alert', callback)
-});
-```
-
-#### Cross-Platform Considerations
-```typescript
-// Auto-updater for deployment
-import { autoUpdater } from 'electron-updater';
-
-// Platform-specific UI adjustments
-const isMac = process.platform === 'darwin';
-const isWindows = process.platform === 'win32';
-
-// Touch-friendly UI scaling
-const getScaleFactor = () => {
-  const { screen } = require('electron');
-  return screen.getPrimaryDisplay().scaleFactor;
-};
-```
-
-#### Offline-First Architecture
-```typescript
-// renderer/stores/sync-store.ts
-class SyncManager {
-  private offlineQueue: OfflineAction[] = [];
-  
-  async executeAction(action: ChecklistAction) {
-    try {
-      if (navigator.onLine) {
-        await this.syncToServer(action);
-      } else {
-        await this.queueOffline(action);
-      }
-    } catch (error) {
-      await this.queueOffline(action);
-    }
+### Component Architecture (Vanilla JS)
+```javascript
+// Pattern: Class-based components with render() + mount() lifecycle
+class FahrzeugtypenPage {
+  async render() {
+    await this.loadData();
+    return `<div>...</div>`; // Return HTML string
   }
   
-  // Sync queued actions when back online
-  async syncPendingActions() {
-    for (const action of this.offlineQueue) {
-      try {
-        await this.syncToServer(action);
-        this.markSynced(action.id);
-      } catch (error) {
-        action.retryCount++;
-      }
-    }
+  mount() {
+    this.setupEventListeners(); // Called after DOM insertion
   }
 }
+
+// Global exposure for onclick handlers
+window.fahrzeugtypenPage = new FahrzeugtypenPage();
+
+// Usage in HTML: onclick="fahrzeugtypenPage.methodName()"  
+// ⚠️ Prefer onclick over addEventListener for main actions (timing issues)
 ```
 
-## Development Setup
-Project is currently in planning phase. When implementing:
-1. Set up FastAPI backend with PostgreSQL
-2. Create Electron frontend with offline capabilities  
-3. Implement WebSocket real-time sync
-4. Deploy to Ubuntu VM with proper SSL/security
-
-Refer to `Notes.md` for complete feature requirements and German terminology.
-
-#### WebSocket Event Specifications
+### Secure IPC Communication
 ```typescript
-// Real-time checklist collaboration
-interface ChecklistUpdatedEvent {
-  type: 'checklist_updated';
-  checklistId: string;
-  fahrzeugId: string;
-  userId: string;
-  changes: {
-    itemId: string;
-    status: 'ok' | 'fehler' | 'nicht_pruefbar';
-    kommentar?: string;
-    timestamp: string;
-  }[];
-}
+// preload.ts - Expose safe APIs via contextBridge
+contextBridge.exposeInMainWorld('electronAPI', {
+  listVehicles: () => ipcRenderer.invoke('api-list-vehicles'),
+  createVehicleType: (data) => ipcRenderer.invoke('api-create-vehicle-type', data)
+});
 
-// TÜV deadline notifications
-interface TuvDeadlineEvent {
-  type: 'tuv_deadline_warning';
-  fahrzeugId: string;
-  kennzeichen: string;
-  ablaufDatum: string;
-  tageVerbleibend: number;
-  priority: 'expired' | 'warning' | 'reminder';
-}
-
-// Group/user management changes
-interface UserAssignmentEvent {
-  type: 'user_assignment_changed';
-  userId: string;
-  oldGruppeId?: string;
-  newGruppeId: string;
-  changedBy: string;
-  timestamp: string;
-}
-
-// Live presence for collaborative editing
-interface UserPresenceEvent {
-  type: 'user_presence';
-  checklistId: string;
-  userId: string;
-  username: string;
-  action: 'joined' | 'left' | 'editing_item';
-  itemId?: string;
-}
+// renderer: Access via window.electronAPI
+const vehicles = await window.electronAPI.listVehicles();
 ```
 
-#### Offline Sync Queue Schema
+### Data Flow Pattern
+```javascript
+// 1. Component calls dataManager
+await window.dataManager.loadVehicles();
+
+// 2. dataManager calls electronAPI  
+const response = await window.electronAPI.listVehicles();
+
+// 3. electronAPI invokes IPC handler
+ipcMain.handle('api-list-vehicles', () => backendClient.listVehicles());
+
+// 4. backendClient makes HTTP request to FastAPI
+const res = await fetch(`${this.baseUrl}/vehicles`, { headers: authHeaders });
+```
+
+### German Domain Terminology
+- **Entities**: `Fahrzeug`, `Fahrzeugtyp`, `Fahrzeuggruppe`, `Gruppe`, `TÜV-Termin`
+- **Database**: snake_case (`fahrzeug_id`, `fahrzeugtyp_id`, `ablauf_datum`)
+- **UI Text**: Native German (`Fahrzeugtyp hinzufügen`, `TÜV-Termine verwalten`)
+- **Status Values**: German (`ok`, `fehler`, `nicht_pruefbar`, `current`, `warning`, `expired`)
+
+## Backend Integration Specifics
+
+### FastAPI Route Structure
+```python
+# Pattern: Feature-based routers with dependency injection
+from ...core.deps import get_current_user
+from ...models.vehicle_type import FahrzeugTyp
+
+@router.post("", response_model=FahrzeugTypSchema)
+def create_vehicle_type(
+    data: FahrzeugTypCreate,
+    db: Session = Depends(get_db),
+    current_user: Benutzer = Depends(get_current_user)
+):
+    # Permission checks for organisator/admin roles
+    check_admin_permission(current_user)
+```
+
+### Authentication Flow
 ```typescript
-interface OfflineAction {
-  id: string;
-  type: 'item_update' | 'checklist_complete' | 'comment_add';
-  data: any;
-  timestamp: string;
-  retryCount: number;
-  synced: boolean;
+// Login stores JWT token, all subsequent requests include Bearer header
+const { access_token } = await backendClient.login(username, password);
+this.token = access_token; // Stored in tokenStorage for persistence
+
+// Auto-included in requests via authHeaders()
+private authHeaders() {
+  return this.token ? { 'Authorization': `Bearer ${this.token}` } : {};
 }
 ```
+
+### Domain Model (SQLAlchemy Relationships)
+```python
+# Core hierarchy: Benutzer → Gruppe → FahrzeugGruppe → Fahrzeug
+# Key models in /backend/app/models/:
+# - user.py: Benutzer with rolle hierarchy
+# - group.py: Gruppe with gruppenleiter relationship  
+# - vehicle.py: FahrzeugGruppe, Fahrzeug with fahrzeugtyp
+# - checklist.py: TuvTermin, Checkliste, ChecklistItem, ChecklistAusfuehrung, ItemErgebnis
+# - vehicle_type.py: FahrzeugTyp (MTF, RTB, LF, etc.)
+
+# Example relationship pattern:
+class Fahrzeug(Base):
+    fahrzeugtyp = relationship("FahrzeugTyp", back_populates="fahrzeuge")
+    fahrzeuggruppe = relationship("FahrzeugGruppe", back_populates="fahrzeuge")
+    tuv_termine = relationship("TuvTermin", back_populates="fahrzeug", cascade="all, delete-orphan")
+```
+
+## Security & Production Considerations
+- **Electron Security**: `contextIsolation: true`, `nodeIntegration: false`, restrictive CSP
+- **Window Management**: Custom title bar with `-webkit-app-region: drag`
+- **Error Handling**: User-friendly German messages, console logging for debugging
+- **Role-based Access**: Backend enforces permissions, frontend adapts UI based on user role
+
+## Development Tips
+- **Build First**: Always `npm run build` before `npm start` (TypeScript compilation required)
+- **Repository Path**: Always specify full repository path when running `npm start` in new terminals
+- **Backend Terminal**: Never run other commands in the backend terminal - dedicated process only
+- **Component Events**: Use `onclick="componentName.method()"` for reliability over addEventListener
+- **Cache Strategy**: dataManager implements 5-minute cache with `forceRefresh` option  
+- **German Context**: All user-facing text, entity names, and database fields use German terminology
+- **Debugging**: Check both Electron DevTools (renderer) and terminal output (main process)
+
+## Known TODOs & Technical Debt
+- **Testing**: Frontend testing framework needs implementation (backend has basic test files)
+- **IP Configuration**: All hardcoded IPs (`localhost:8000`, `127.0.0.1:8000`) need to be replaced with configurable environment variables
+- **Environment Variables**: Centralize all URL configurations in `.env` files
+- **CSP Updates**: Content Security Policy hardcodes backend URLs and needs dynamic configuration
