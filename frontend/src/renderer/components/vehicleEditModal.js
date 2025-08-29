@@ -46,13 +46,11 @@ class VehicleEditModal {
     const state = window.appStore.getState();
     const token = state.token;
     
-    const response = await fetch(`http://127.0.0.1:8000/vehicles/${vehicleId}`, {
+    const response = await window.configUtils.fetchBackend(`/vehicles/${vehicleId}`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
-    
     if (!response.ok) {
       throw new Error('Failed to load vehicle data');
     }
@@ -60,30 +58,26 @@ class VehicleEditModal {
     this.vehicle = await response.json();
     
     // Also load TÜV data
-    const tuvResponse = await fetch(`http://127.0.0.1:8000/vehicles/${vehicleId}/tuv`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+      const tuvResponse = await window.configUtils.fetchBackend(`/vehicles/${vehicleId}/tuv`, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (tuvResponse.ok) {
+        const tuvData = await tuvResponse.json();
+        this.vehicle.tuv_data = tuvData.tuv_data;
       }
-    });
-    
-    if (tuvResponse.ok) {
-      const tuvData = await tuvResponse.json();
-      this.vehicle.tuv_data = tuvData.tuv_data;
     }
-  }
 
   async loadFahrzeugtypen() {
     const state = window.appStore.getState();
     const token = state.token;
     
-    const response = await fetch('http://127.0.0.1:8000/vehicle-types', {
+    const response = await window.configUtils.fetchBackend('/vehicle-types', {
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
-    
     if (response.ok) {
       this.fahrzeugtypen = await response.json();
     }
@@ -93,13 +87,11 @@ class VehicleEditModal {
     const state = window.appStore.getState();
     const token = state.token;
     
-    const response = await fetch('http://127.0.0.1:8000/fahrzeuggruppen', {
+    const response = await window.configUtils.fetchBackend('/fahrzeuggruppen', {
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
-    
     if (response.ok) {
       this.fahrzeuggruppen = await response.json();
     }
@@ -323,19 +315,17 @@ class VehicleEditModal {
       
       // Create or update vehicle data
       const endpoint = isEdit 
-        ? `http://127.0.0.1:8000/vehicles/${this.vehicle.id}`
-        : 'http://127.0.0.1:8000/vehicles';
+        ? `/vehicles/${this.vehicle.id}`
+        : '/vehicles';
       const method = isEdit ? 'PUT' : 'POST';
 
-      const vehicleResponse = await fetch(endpoint, {
+      const vehicleResponse = await window.configUtils.fetchBackend(endpoint, {
         method,
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(vehicleData)
       });
-
       if (!vehicleResponse.ok) {
         if (vehicleResponse.status === 401) {
           // Token expired or invalid - prompt for re-login
@@ -345,7 +335,6 @@ class VehicleEditModal {
         const error = await vehicleResponse.json();
         throw new Error(error.detail || `Failed to ${isEdit ? 'update' : 'create'} vehicle`);
       }
-
       const savedVehicle = await vehicleResponse.json();
 
       // Update TÜV data (only if vehicle has TÜV dates and we have a vehicle ID)
@@ -353,15 +342,13 @@ class VehicleEditModal {
         const vehicleId = isEdit ? this.vehicle.id : savedVehicle.id;
         tuvData.fahrzeug_id = vehicleId;
         
-        const tuvResponse = await fetch(`http://127.0.0.1:8000/vehicles/${vehicleId}/tuv`, {
+        const tuvResponse = await window.configUtils.fetchBackend(`/vehicles/${vehicleId}/tuv`, {
           method: (isEdit && this.vehicle.tuv_data) ? 'PUT' : 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(tuvData)
         });
-
         if (!tuvResponse.ok) {
           if (tuvResponse.status === 401) {
             // Token expired or invalid - prompt for re-login

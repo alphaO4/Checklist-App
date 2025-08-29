@@ -1,12 +1,24 @@
 // Simple HTTP client for the FastAPI backend using global fetch (Node 18+)
+import { getBackendConfig } from '../shared/config';
+
 export class BackendClient {
   private baseUrl: string;
   private token: string | null = null;
 
   constructor(baseUrl?: string) {
-    // Allow override via env BACKEND_URL; default to localhost:8000
-    const envUrl = process.env.BACKEND_URL;
-    this.baseUrl = (baseUrl || envUrl || 'http://localhost:8000').replace(/\/$/, '');
+    // Use provided URL, environment variable, or configuration
+    if (baseUrl) {
+      this.baseUrl = baseUrl.replace(/\/$/, '');
+    } else {
+      const envUrl = process.env.BACKEND_URL;
+      if (envUrl) {
+        this.baseUrl = envUrl.replace(/\/$/, '');
+      } else {
+        const config = getBackendConfig();
+        this.baseUrl = config.baseUrl;
+      }
+    }
+    console.log(`[BackendClient] Initialized with baseUrl: ${this.baseUrl}`);
   }
 
   setToken(token: string | null) {

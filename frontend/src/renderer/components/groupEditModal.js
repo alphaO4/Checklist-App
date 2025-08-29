@@ -46,12 +46,11 @@ class GroupEditModal {
     }
 
     const endpoint = this.groupType === 'main-group' 
-      ? `http://127.0.0.1:8000/groups/${groupId}`
-      : `http://127.0.0.1:8000/fahrzeuggruppen/${groupId}`;
+      ? `/groups/${groupId}`
+      : `/fahrzeuggruppen/${groupId}`;
 
-    const response = await fetch(endpoint, {
+    const response = await window.configUtils.fetchBackend(endpoint, {
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -92,17 +91,20 @@ class GroupEditModal {
           return;
         }
 
-        const response = await fetch('http://127.0.0.1:8000/users', {
+        const response = await window.configUtils.fetchBackend('/users', {
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          this.availableUsers = Array.isArray(data) ? data : (data.items || []);
+        if (!response.ok) {
+          if (response.status === 401) {
+            window.appStore.logout();
+            throw new Error('Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.');
+          }
+          throw new Error('Failed to load available users');
         }
+        const data = await response.json();
+        this.availableUsers = Array.isArray(data) ? data : (data.items || []);
       } catch (error) {
         console.error('Failed to load available users:', error);
         this.availableUsers = [];
@@ -298,10 +300,9 @@ class GroupEditModal {
       const endpoint = this.getApiEndpoint(isEdit);
       const method = isEdit ? 'PUT' : 'POST';
 
-      const response = await fetch(endpoint, {
+      const response = await window.configUtils.fetchBackend(endpoint, {
         method,
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(data)
@@ -336,12 +337,12 @@ class GroupEditModal {
   getApiEndpoint(isEdit) {
     if (this.groupType === 'main-group') {
       return isEdit 
-        ? `http://127.0.0.1:8000/groups/${this.group.id}`
-        : 'http://127.0.0.1:8000/groups';
+        ? `/groups/${this.group.id}`
+        : '/groups';
     } else {
       return isEdit 
-        ? `http://127.0.0.1:8000/fahrzeuggruppen/${this.group.id}`
-        : 'http://127.0.0.1:8000/fahrzeuggruppen';
+        ? `/fahrzeuggruppen/${this.group.id}`
+        : '/fahrzeuggruppen';
     }
   }
 

@@ -21,13 +21,12 @@ const createWindow = (): void => {
   });
 
   // Load the app
+  // Always load from local file (Electron app, not web server)
+  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  
+  // Open DevTools in development
   if (process.env.NODE_ENV === 'development') {
-    // Development: Load from local server
-    mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
-  } else {
-    // Production: Load from file
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
   // Show window when ready to prevent visual flash
