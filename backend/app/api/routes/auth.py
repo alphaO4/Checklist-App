@@ -19,7 +19,7 @@ router = APIRouter()
 
 def check_admin_role(current_user: Benutzer):
     """Helper to check if user has admin role"""
-    if current_user.rolle != "admin":
+    if getattr(current_user, "rolle", "") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required"
@@ -256,6 +256,8 @@ def change_password(
             detail="Neues Passwort muss mindestens 8 Zeichen lang sein"
         )
     
+    # Assign the hashed password directly for clarity and type safety.
+    # If you encounter SQLAlchemy mapping issues, use setattr() instead and document the reason.
     current_user.password_hash = hash_password(password_data.new_password)
     db.commit()
     return {"detail": "Passwort erfolgreich geändert"}
