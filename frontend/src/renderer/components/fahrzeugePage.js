@@ -238,10 +238,9 @@ class FahrzeugePage {
       const state = window.appStore.getState();
       const token = state.token;
 
-      const response = await fetch(`http://127.0.0.1:8000/vehicles/${vehicleId}`, {
+      const response = await window.configUtils.fetchBackend(`/vehicles/${vehicleId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
