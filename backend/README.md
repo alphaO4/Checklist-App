@@ -31,7 +31,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 3) Verify
 
-- Health: GET http://127.0.0.1:8000/healthz
+- Health: GET http://127.0.0.1:8000/health
 - Docs: http://127.0.0.1:8000/docs
 
 ## Config
