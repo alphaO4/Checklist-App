@@ -65,10 +65,36 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Frontend (requires backend running, always specify repository path)
 cd "e:\Github\Checklist-App\frontend"     # Always use full repository path
-npm run build                             # Required: Compile TS → JS, copy assets to dist/
+npm run build                             # Required: Generate config, compile TS → JS, copy assets
 npm start                                 # Launch Electron (runs prestart build automatically)
 npm run dev                               # Watch mode with concurrently
 ```
+
+### Configuration System (NEW)
+The frontend now uses **configurable backend URLs** instead of hardcoded IPs:
+
+```bash
+# Default development (127.0.0.1:8000)
+npm run build
+
+# Custom backend server
+BACKEND_HOST=192.168.1.100 npm run build
+
+# Production HTTPS setup
+BACKEND_HOST=api.example.com BACKEND_PROTOCOL=https npm run build
+```
+
+**Environment Files:**
+- `.env.template` - Configuration template
+- `.env.development` - Development defaults
+- `.env.production` - Production defaults  
+- `.env.local` - Local overrides (gitignored)
+
+**Configuration Variables:**
+- `BACKEND_HOST` - Server hostname/IP
+- `BACKEND_PORT` - Server port (default: 8000)
+- `BACKEND_PROTOCOL` - http/https
+- `BACKEND_WS_PROTOCOL` - ws/wss
 
 ### Testing
 ```bash
@@ -88,17 +114,23 @@ frontend/src/
 │   ├── backend.ts          # HTTP client for FastAPI communication
 │   └── ipc/handlers.ts     # IPC request/response handlers
 ├── renderer/               # Renderer process (Web context) 
-│   ├── index.html          # SPA with German UI, includes all component scripts
+│   ├── index.html          # SPA with German UI, includes all component scripts (template)
 │   ├── js/renderer.js      # Main app controller, navigation, authentication
 │   ├── components/         # Page components (vanilla JS classes)
 │   ├── stores/             # dataManager (caching), appStore (state), authManager
+│   ├── utils/configUtils.js # Configuration helpers for API calls
 │   └── styles/main.css     # Fire department red theme, CSS custom properties
+├── shared/                 # Shared utilities
+│   ├── config.ts           # Configuration management for main process
+│   └── types.ts            # TypeScript type definitions
 backend/app/
 ├── main.py                 # FastAPI app, CORS, router includes
 ├── models/                 # SQLAlchemy domain models (German naming)
 ├── api/routes/             # REST endpoints by feature
 ├── core/                   # Settings, security, dependencies  
 └── services/               # Business logic, seed data
+scripts/
+└── generate-config.js      # Build-time configuration generator
 ```
 
 ## Core Implementation Patterns
@@ -149,6 +181,23 @@ ipcMain.handle('api-list-vehicles', () => backendClient.listVehicles());
 
 // 4. backendClient makes HTTP request to FastAPI
 const res = await fetch(`${this.baseUrl}/vehicles`, { headers: authHeaders });
+```
+
+### Configuration-Based API Calls (NEW)
+```javascript
+// Renderer components use configUtils for all API calls
+const response = await window.configUtils.fetchBackend('/vehicles', {
+  method: 'GET'
+});
+
+// configUtils automatically handles:
+// - Backend URL resolution from runtime config
+// - Authentication token injection
+// - Error handling and fallbacks
+
+// Direct access to configuration
+const backendUrl = window.getBackendUrl();
+const config = window.APP_CONFIG.backend;
 ```
 
 ### German Domain Terminology
@@ -214,6 +263,7 @@ class Fahrzeug(Base):
 - **Build First**: Always `npm run build` before `npm start` (TypeScript compilation required)
 - **Repository Path**: Always specify full repository path when running `npm start` in new terminals
 - **Backend Terminal**: Never run other commands in the backend terminal - dedicated process only
+- **Configuration**: All hardcoded IPs have been replaced with configurable environment variables
 - **Component Events**: Use `onclick="componentName.method()"` for reliability over addEventListener
 - **Cache Strategy**: dataManager implements 5-minute cache with `forceRefresh` option  
 - **German Context**: All user-facing text, entity names, and database fields use German terminology
@@ -221,6 +271,6 @@ class Fahrzeug(Base):
 
 ## Known TODOs & Technical Debt
 - **Testing**: Frontend testing framework needs implementation (backend has basic test files)
-- **IP Configuration**: All hardcoded IPs (`localhost:8000`, `127.0.0.1:8000`) need to be replaced with configurable environment variables
-- **Environment Variables**: Centralize all URL configurations in `.env` files
-- **CSP Updates**: Content Security Policy hardcodes backend URLs and needs dynamic configuration
+- ✅ **IP Configuration**: ~~All hardcoded IPs need to be replaced~~ - COMPLETED: Now uses configurable environment variables
+- ✅ **Environment Variables**: ~~Centralize all URL configurations~~ - COMPLETED: `.env` files with build-time generation
+- ✅ **CSP Updates**: ~~Content Security Policy hardcodes backend URLs~~ - COMPLETED: Dynamic CSP generation
