@@ -19,9 +19,11 @@ class FahrzeugePage {
             <button class="btn btn-secondary" onclick="fahrzeugePage.refreshData()">
               <span class="icon">🔄</span> Aktualisieren
             </button>
-            <button class="btn btn-primary" onclick="fahrzeugePage.addVehicle()">
-              <span class="icon">➕</span> Fahrzeug hinzufügen
-            </button>
+            ${this.canEdit() ? `
+              <button class="btn btn-primary" onclick="fahrzeugePage.addVehicle()">
+                <span class="icon">➕</span> Fahrzeug hinzufügen
+              </button>
+            ` : ''}
           </div>
         </div>
 
@@ -50,9 +52,11 @@ class FahrzeugePage {
       return `
         <div class="no-data">
           <p>Keine Fahrzeuge gefunden.</p>
-          <button class="btn btn-primary" onclick="fahrzeugePage.addVehicle()">
-            Erstes Fahrzeug hinzufügen
-          </button>
+          ${this.canEdit() ? `
+            <button class="btn btn-primary" onclick="fahrzeugePage.addVehicle()">
+              Erstes Fahrzeug hinzufügen
+            </button>
+          ` : ''}
         </div>
       `;
     }
@@ -108,12 +112,14 @@ class FahrzeugePage {
           <button class="btn btn-sm btn-primary" onclick="fahrzeugePage.startChecklist('${vehicle.id}')">
             Prüfung
           </button>
-          <button class="btn btn-sm btn-secondary" onclick="fahrzeugePage.editVehicle('${vehicle.id}')">
-            Bearbeiten
-          </button>
-          <button class="btn btn-sm btn-danger" onclick="fahrzeugePage.deleteVehicle('${vehicle.id}')">
-            Löschen
-          </button>
+          ${this.canEdit() ? `
+            <button class="btn btn-sm btn-secondary" onclick="fahrzeugePage.editVehicle('${vehicle.id}')">
+              Bearbeiten
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="fahrzeugePage.deleteVehicle('${vehicle.id}')">
+              Löschen
+            </button>
+          ` : ''}
         </td>
       </tr>
     `;
@@ -157,6 +163,12 @@ class FahrzeugePage {
     return `Gruppe ${idStr.substring(0, 8)}`;
   }
 
+  canEdit() {
+    const state = window.appStore.getState();
+    const userRole = state.user?.rolle;
+    return userRole === 'admin' || userRole === 'organisator';
+  }
+
   async loadFahrzeuge() {
     try {
       await window.dataManager.loadVehicles();
@@ -186,19 +198,65 @@ class FahrzeugePage {
   }
 
   addVehicle() {
-    window.appStore.addNotification('info', 'Fahrzeug hinzufügen - Funktion wird implementiert');
-    // TODO: Open add vehicle dialog/form
+    if (!this.canEdit()) {
+      window.appStore.addNotification('error', 'Keine Berechtigung zum Hinzufügen von Fahrzeugen');
+      return;
+    }
+    
+    if (typeof window.vehicleEditModal !== 'undefined') {
+      window.vehicleEditModal.show(null); // null means create new vehicle
+    }
   }
 
   editVehicle(vehicleId) {
-    window.appStore.addNotification('info', `Fahrzeug ${vehicleId} bearbeiten - Funktion wird implementiert`);
-    // TODO: Open edit vehicle dialog/form
+    if (!this.canEdit()) {
+      window.appStore.addNotification('error', 'Keine Berechtigung zum Bearbeiten von Fahrzeugen');
+      return;
+    }
+    
+    // Import and show vehicle edit modal
+    if (window.vehicleEditModal) {
+      window.vehicleEditModal.show(vehicleId);
+    } else {
+      window.appStore.addNotification('error', 'Bearbeitungskomponente nicht verfügbar');
+    }
   }
 
   deleteVehicle(vehicleId) {
-    if (confirm('Fahrzeug wirklich löschen?')) {
-      window.appStore.addNotification('info', `Fahrzeug ${vehicleId} löschen - Funktion wird implementiert`);
-      // TODO: Delete vehicle via API
+    if (!this.canEdit()) {
+      window.appStore.addNotification('error', 'Keine Berechtigung zum Löschen von Fahrzeugen');
+      return;
+    }
+    
+    if (confirm('Fahrzeug wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+      this.performDeleteVehicle(vehicleId);
+    }
+  }
+
+  async performDeleteVehicle(vehicleId) {
+    try {
+      const state = window.appStore.getState();
+      const token = state.token;
+
+      const response = await fetch(`http://127.0.0.1:8000/vehicles/${vehicleId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to delete vehicle');
+      }
+
+      window.appStore.addNotification('success', 'Fahrzeug erfolgreich gelöscht');
+      await this.refreshData();
+
+    } catch (error) {
+      console.error('Failed to delete vehicle:', error);
+      window.appStore.addNotification('error', `Fehler beim Löschen: ${error.message}`);
     }
   }
 

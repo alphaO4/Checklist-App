@@ -5,7 +5,9 @@ class DataManager {
     this.cache = {
       vehicles: { data: [], lastFetch: 0 },
       checklists: { data: [], lastFetch: 0 },
-      tuvTermine: { data: [], lastFetch: 0 }
+      tuvTermine: { data: [], lastFetch: 0 },
+      vehicleTypes: { data: [], lastFetch: 0 },
+      fahrzeuggruppen: { data: [], lastFetch: 0 }
     };
     this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   }
@@ -85,6 +87,42 @@ class DataManager {
       console.error('Failed to create vehicle type:', error);
       const errorMessage = this.getErrorMessage(error);
       window.appStore.addNotification('error', `Fehler beim Erstellen des Fahrzeugtyps: ${errorMessage}`);
+      throw error;
+    }
+  }
+
+  // Update vehicle type
+  async updateVehicleType(id, data) {
+    try {
+      if (typeof window.electronAPI === 'undefined') {
+        throw new Error('Electron API nicht verfügbar');
+      }
+
+      const updatedType = await window.electronAPI.updateVehicleType(id, data);
+      window.appStore.addNotification('success', `Fahrzeugtyp "${data.name || updatedType.name}" wurde aktualisiert`);
+      return updatedType;
+    } catch (error) {
+      console.error('Failed to update vehicle type:', error);
+      const errorMessage = this.getErrorMessage(error);
+      window.appStore.addNotification('error', `Fehler beim Aktualisieren des Fahrzeugtyps: ${errorMessage}`);
+      throw error;
+    }
+  }
+
+  // Delete vehicle type
+  async deleteVehicleType(id) {
+    try {
+      if (typeof window.electronAPI === 'undefined') {
+        throw new Error('Electron API nicht verfügbar');
+      }
+
+      const result = await window.electronAPI.deleteVehicleType(id);
+      window.appStore.addNotification('success', result.message || 'Fahrzeugtyp wurde gelöscht');
+      return result;
+    } catch (error) {
+      console.error('Failed to delete vehicle type:', error);
+      const errorMessage = this.getErrorMessage(error);
+      window.appStore.addNotification('error', `Fehler beim Löschen des Fahrzeugtyps: ${errorMessage}`);
       throw error;
     }
   }
@@ -205,6 +243,54 @@ class DataManager {
   async refreshAllData() {
     this.clearCache();
     return await this.loadAllData(true);
+  }
+
+  // Load vehicle types
+  async loadVehicleTypes(forceRefresh = false) {
+    if (!forceRefresh && this.isCacheFresh('vehicleTypes')) {
+      return this.cache.vehicleTypes.data;
+    }
+
+    try {
+      if (typeof window.electronAPI === 'undefined') {
+        throw new Error('Electron API nicht verfügbar');
+      }
+
+      const response = await window.electronAPI.listVehicleTypes();
+      const vehicleTypes = Array.isArray(response) ? response : (response.items || []);
+      
+      this.cache.vehicleTypes = { data: vehicleTypes, lastFetch: Date.now() };
+      return vehicleTypes;
+    } catch (error) {
+      console.error('Failed to load vehicle types:', error);
+      const errorMessage = this.getErrorMessage(error);
+      window.appStore.addNotification('error', `Fehler beim Laden der Fahrzeugtypen: ${errorMessage}`);
+      return [];
+    }
+  }
+
+  // Load fahrzeuggruppen
+  async loadFahrzeuggruppen(forceRefresh = false) {
+    if (!forceRefresh && this.isCacheFresh('fahrzeuggruppen')) {
+      return this.cache.fahrzeuggruppen.data;
+    }
+
+    try {
+      if (typeof window.electronAPI === 'undefined') {
+        throw new Error('Electron API nicht verfügbar');
+      }
+
+      const response = await window.electronAPI.listFahrzeuggruppen();
+      const fahrzeuggruppen = Array.isArray(response) ? response : (response.items || []);
+      
+      this.cache.fahrzeuggruppen = { data: fahrzeuggruppen, lastFetch: Date.now() };
+      return fahrzeuggruppen;
+    } catch (error) {
+      console.error('Failed to load fahrzeuggruppen:', error);
+      const errorMessage = this.getErrorMessage(error);
+      window.appStore.addNotification('error', `Fehler beim Laden der Fahrzeuggruppen: ${errorMessage}`);
+      return [];
+    }
   }
 
   getErrorMessage(error) {

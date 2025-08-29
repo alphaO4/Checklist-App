@@ -127,6 +127,14 @@ export const setupIpcHandlers = async (): Promise<void> => {
     return await backendClient.createVehicleType(data);
   });
 
+  ipcMain.handle('api-update-vehicle-type', async (event, id: string, data: any) => {
+    return await backendClient.updateVehicleType(id, data);
+  });
+
+  ipcMain.handle('api-delete-vehicle-type', async (event, id: string) => {
+    return await backendClient.deleteVehicleType(id);
+  });
+
   ipcMain.handle('api-list-checklists', async () => {
     return await backendClient.listChecklists();
   });
@@ -141,6 +149,64 @@ export const setupIpcHandlers = async (): Promise<void> => {
 
   ipcMain.handle('sync-push-actions', async (event, actions: any[]) => {
     return await backendClient.pushActions(actions);
+  });
+
+  ipcMain.handle('api-list-fahrzeuggruppen', async () => {
+    return await backendClient.listFahrzeuggruppen();
+  });
+
+  ipcMain.handle('api-update-vehicle', async (event, id: string, data: any) => {
+    return await backendClient.updateVehicle(id, data);
+  });
+
+  ipcMain.handle('api-create-vehicle', async (event, data: any) => {
+    return await backendClient.createVehicle(data);
+  });
+
+  ipcMain.handle('api-update-vehicle-tuv', async (event, vehicleId: string, data: any) => {
+    return await backendClient.updateVehicleTuv(vehicleId, data);
+  });
+
+  // Group management handlers
+  ipcMain.handle('api-list-groups', async () => {
+    return await backendClient.listGroups();
+  });
+
+  ipcMain.handle('api-get-group', async (event, id: string) => {
+    return await backendClient.getGroup(id);
+  });
+
+  ipcMain.handle('api-create-group', async (event, data: any) => {
+    return await backendClient.createGroup(data);
+  });
+
+  ipcMain.handle('api-update-group', async (event, id: string, data: any) => {
+    return await backendClient.updateGroup(id, data);
+  });
+
+  ipcMain.handle('api-delete-group', async (event, id: string) => {
+    return await backendClient.deleteGroup(id);
+  });
+
+  // Fahrzeuggruppe management handlers
+  ipcMain.handle('api-get-fahrzeuggruppe', async (event, id: string) => {
+    return await backendClient.getFahrzeuggruppe(id);
+  });
+
+  ipcMain.handle('api-create-fahrzeuggruppe', async (event, data: any) => {
+    return await backendClient.createFahrzeuggruppe(data);
+  });
+
+  ipcMain.handle('api-update-fahrzeuggruppe', async (event, id: string, data: any) => {
+    return await backendClient.updateFahrzeuggruppe(id, data);
+  });
+
+  ipcMain.handle('api-delete-fahrzeuggruppe', async (event, id: string) => {
+    return await backendClient.deleteFahrzeuggruppe(id);
+  });
+
+  ipcMain.handle('api-list-users', async () => {
+    return await backendClient.listUsers();
   });
 
   // Window controls

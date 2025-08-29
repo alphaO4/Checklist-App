@@ -55,9 +55,17 @@ export class BackendClient {
   }
 
   async listVehicles(): Promise<any[]> {
+    console.log('[BackendClient] Fetching vehicles...');
     const res = await fetch(`${this.baseUrl}/vehicles`, { headers: { ...this.authHeaders() } });
-    if (!res.ok) throw new Error('Fehler beim Laden der Fahrzeuge');
-    return res.json();
+    console.log('[BackendClient] Vehicles response status:', res.status);
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[BackendClient] Vehicles error:', errorText);
+      throw new Error('Fehler beim Laden der Fahrzeuge');
+    }
+    const data = await res.json();
+    console.log('[BackendClient] Vehicles data:', data);
+    return data;
   }
 
   async listVehicleTypes(): Promise<any[]> {
@@ -73,6 +81,25 @@ export class BackendClient {
       body: JSON.stringify(data)
     });
     if (!res.ok) throw new Error('Fehler beim Erstellen des Fahrzeugtyps');
+    return res.json();
+  }
+
+  async updateVehicleType(id: string, data: any): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/vehicle-types/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Fehler beim Aktualisieren des Fahrzeugtyps');
+    return res.json();
+  }
+
+  async deleteVehicleType(id: string): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/vehicle-types/${id}`, {
+      method: 'DELETE',
+      headers: { ...this.authHeaders() }
+    });
+    if (!res.ok) throw new Error('Fehler beim Löschen des Fahrzeugtyps');
     return res.json();
   }
 
@@ -119,6 +146,126 @@ export class BackendClient {
     const res = await fetch(`${this.baseUrl}/health`);
     if (!res.ok) throw new Error(`Health check failed (${res.status})`);
     return res.json();
+  }
+
+  async listFahrzeuggruppen(): Promise<any[]> {
+    const res = await fetch(`${this.baseUrl}/fahrzeuggruppen`, { headers: { ...this.authHeaders() } });
+    if (!res.ok) throw new Error('Fehler beim Laden der Fahrzeuggruppen');
+    return res.json();
+  }
+
+  async updateVehicle(id: string, data: any): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/vehicles/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Fehler beim Aktualisieren des Fahrzeugs');
+    return res.json();
+  }
+
+  async createVehicle(data: any): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/vehicles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Fehler beim Erstellen des Fahrzeugs');
+    return res.json();
+  }
+
+  async updateVehicleTuv(vehicleId: string, data: any): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/vehicles/${vehicleId}/tuv`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Fehler beim Aktualisieren der TÜV-Daten');
+    return res.json();
+  }
+
+  // Group management methods
+  async listGroups(): Promise<any[]> {
+    const res = await fetch(`${this.baseUrl}/groups`, { headers: { ...this.authHeaders() } });
+    if (!res.ok) throw new Error('Fehler beim Laden der Gruppen');
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data.items || []);
+  }
+
+  async getGroup(id: string): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/groups/${id}`, { headers: { ...this.authHeaders() } });
+    if (!res.ok) throw new Error('Fehler beim Laden der Gruppe');
+    return res.json();
+  }
+
+  async createGroup(data: any): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/groups`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Fehler beim Erstellen der Gruppe');
+    return res.json();
+  }
+
+  async updateGroup(id: string, data: any): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/groups/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Fehler beim Aktualisieren der Gruppe');
+    return res.json();
+  }
+
+  async deleteGroup(id: string): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/groups/${id}`, {
+      method: 'DELETE',
+      headers: { ...this.authHeaders() }
+    });
+    if (!res.ok) throw new Error('Fehler beim Löschen der Gruppe');
+  }
+
+  // Fahrzeuggruppe management methods
+  async getFahrzeuggruppe(id: string): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/fahrzeuggruppen/${id}`, { headers: { ...this.authHeaders() } });
+    if (!res.ok) throw new Error('Fehler beim Laden der Fahrzeuggruppe');
+    return res.json();
+  }
+
+  async createFahrzeuggruppe(data: any): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/fahrzeuggruppen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Fehler beim Erstellen der Fahrzeuggruppe');
+    return res.json();
+  }
+
+  async updateFahrzeuggruppe(id: string, data: any): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/fahrzeuggruppen/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Fehler beim Aktualisieren der Fahrzeuggruppe');
+    return res.json();
+  }
+
+  async deleteFahrzeuggruppe(id: string): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/fahrzeuggruppen/${id}`, {
+      method: 'DELETE',
+      headers: { ...this.authHeaders() }
+    });
+    if (!res.ok) throw new Error('Fehler beim Löschen der Fahrzeuggruppe');
+  }
+
+  async listUsers(): Promise<any[]> {
+    const res = await fetch(`${this.baseUrl}/users`, { headers: { ...this.authHeaders() } });
+    if (!res.ok) throw new Error('Fehler beim Laden der Benutzer');
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data.items || []);
   }
 }
 

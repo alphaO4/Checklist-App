@@ -42,9 +42,33 @@ const electronAPI = {
   listVehicles: () => ipcRenderer.invoke('api-list-vehicles'),
   listVehicleTypes: () => ipcRenderer.invoke('api-list-vehicle-types'),
   createVehicleType: (data: any) => ipcRenderer.invoke('api-create-vehicle-type', data),
+  updateVehicleType: (id: string, data: any) => ipcRenderer.invoke('api-update-vehicle-type', id, data),
+  deleteVehicleType: (id: string) => ipcRenderer.invoke('api-delete-vehicle-type', id),
   listChecklists: () => ipcRenderer.invoke('api-list-checklists'),
   listTuv: () => ipcRenderer.invoke('api-list-tuv'),
   pushActions: (actions: any[]) => ipcRenderer.invoke('sync-push-actions', actions),
+  
+  // New vehicle management methods
+  listFahrzeuggruppen: () => ipcRenderer.invoke('api-list-fahrzeuggruppen'),
+  updateVehicle: (id: string, data: any) => ipcRenderer.invoke('api-update-vehicle', id, data),
+  createVehicle: (data: any) => ipcRenderer.invoke('api-create-vehicle', data),
+  updateVehicleTuv: (vehicleId: string, data: any) => ipcRenderer.invoke('api-update-vehicle-tuv', vehicleId, data),
+  
+  // Group management methods
+  listGroups: () => ipcRenderer.invoke('api-list-groups'),
+  getGroup: (id: string) => ipcRenderer.invoke('api-get-group', id),
+  createGroup: (data: any) => ipcRenderer.invoke('api-create-group', data),
+  updateGroup: (id: string, data: any) => ipcRenderer.invoke('api-update-group', id, data),
+  deleteGroup: (id: string) => ipcRenderer.invoke('api-delete-group', id),
+  
+  // Fahrzeuggruppe management methods
+  getFahrzeuggruppe: (id: string) => ipcRenderer.invoke('api-get-fahrzeuggruppe', id),
+  createFahrzeuggruppe: (data: any) => ipcRenderer.invoke('api-create-fahrzeuggruppe', data),
+  updateFahrzeuggruppe: (id: string, data: any) => ipcRenderer.invoke('api-update-fahrzeuggruppe', id, data),
+  deleteFahrzeuggruppe: (id: string) => ipcRenderer.invoke('api-delete-fahrzeuggruppe', id),
+  
+  // User management methods
+  listUsers: () => ipcRenderer.invoke('api-list-users'),
   
   // Token management
   storeToken: (token: string) => ipcRenderer.invoke('auth-store-token', token),

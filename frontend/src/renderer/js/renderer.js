@@ -148,9 +148,16 @@ class App {
       notificationElement.innerHTML = `
         <div class="notification-content">
           <p>${notification.message}</p>
-          <button class="notification-close" onclick="window.appStore.removeNotification('${notification.id}')">×</button>
+          <button class="notification-close">×</button>
         </div>
       `;
+      
+      // Add click event listener for the close button
+      const closeButton = notificationElement.querySelector('.notification-close');
+      closeButton.addEventListener('click', () => {
+        window.appStore.removeNotification(notification.id);
+      });
+      
       notifications.appendChild(notificationElement);
     });
   }
@@ -311,6 +318,15 @@ class App {
           pageComponent = window.fahrzeugePage;
           html = await pageComponent.render();
           break;
+        case 'fahrzeugtypen':
+          pageComponent = window.fahrzeugtypenPage;
+          html = await pageComponent.render();
+          break;
+        case 'gruppen':
+          pageComponent = window.gruppenPage;
+          await pageComponent.show();
+          html = ''; // Content is handled by the component's show method
+          break;
         case 'tuv':
           pageComponent = window.tuvPage;
           html = await pageComponent.render();
@@ -322,7 +338,10 @@ class App {
           html = '<h2>Seite nicht gefunden</h2>';
       }
 
-      pageContent.innerHTML = html;
+      // Only set innerHTML if html is provided (some components manage their own content)
+      if (html) {
+        pageContent.innerHTML = html;
+      }
 
       // Mount the new page component
       if (pageComponent && pageComponent.mount) {
