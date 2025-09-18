@@ -3,82 +3,102 @@
 ## Project Overview
 This is a **Vehicle Inspection Checklist App** for German fire departments (Feuerwehr), enabling organized vehicle safety checks with TÜV (vehicle inspection) deadline tracking.
 
-## Current Implementation Status
-- ✅ **Frontend**: Functional Electron app with TypeScript main process, vanilla JS renderer
-- ✅ **Backend**: Full FastAPI implementation with SQLAlchemy models and authentication  
-- ✅ **Database**: SQLite for development, complete domain models implemented
-- ✅ **IPC Architecture**: Secure main/renderer communication with preload script
-- ✅ **CRUD Operations**: Vehicle types, vehicles, groups, TÜV tracking all functional
-- ✅ **Authentication**: JWT-based auth with role hierarchy (Benutzer → Gruppenleiter → Organisator → Admin)
+## Current Implementation Status (MAJOR ARCHITECTURE TRANSFORMATION)
+- ✅ **Android-First Native**: Primary platform using Jetpack Compose + Material Design 3
+- ✅ **Offline-First**: Room database with background sync to FastAPI backend
+- ✅ **Modern Android Stack**: Hilt DI, Navigation Component, MVVM + Repository pattern
+- ✅ **Multi-Platform Support**: Web and Desktop as secondary platforms sharing same backend APIs
+- ✅ **Cross-Platform Business Logic**: Kotlin Multiplatform shared module for domain models and use cases
+- ✅ **Backend**: Enhanced FastAPI with mobile-optimized endpoints and sync support
+- ✅ **German Fire Department Domain**: Complete TÜV tracking, vehicle management, and checklist workflows
 
 ## Architecture & Tech Stack
-- **Frontend**: Electron (TypeScript) with HTML/CSS renderer
-- **Offline Storage**: SQLite3 for local data persistence
-- **IPC**: Secure contextBridge pattern for main/renderer communication
-- **Planned Backend**: Python/FastAPI + PostgreSQL + WebSockets
-- **Deployment Target**: Ubuntu VM on Proxmox
 
-## Domain Model (German Context)
-Key entities and their relationships:
+### Primary Platform: Android Native (`android-native/`)
+- **UI**: Jetpack Compose + Material Design 3 with Fire Department red theme
+- **Architecture**: MVVM + Repository pattern with Hilt dependency injection  
+- **Database**: Room (SQLite) entities mirroring backend SQLAlchemy models exactly
+- **Networking**: Retrofit + OkHttp with offline caching and sync conflict resolution
+- **Navigation**: Navigation Component with type-safe Compose destinations
+- **Build**: Gradle KSP (not KAPT) for annotation processing to avoid JDK compatibility issues
+
+### Secondary Platforms
+- **Web** (`web/`): Vanilla JS/HTML/CSS SPA consuming REST APIs (formerly `frontend/`)
+- **Desktop** (`desktop/`): Electron wrapper around web version  
+- **Legacy** (`android-webview-legacy/`): Old WebView implementation (backup only)
+
+### Backend (`backend/`)
+- **Core**: Python/FastAPI + SQLAlchemy + SQLite (dev) / PostgreSQL (prod)
+- **Enhanced**: Mobile sync endpoints, batch operations, conflict resolution
+- **Authentication**: JWT-based with German role hierarchy (Benutzer → Gruppenleiter → Organisator → Admin)
+
+## Domain Model (German Fire Department Context)
+**CRITICAL**: All entity names, database tables, and UI text use German terminology. This is not translatable - it's the actual domain language.
+
+### Entity Hierarchy
 - **Benutzer** (Users) → **Gruppen** (Groups) → **Fahrzeuggruppen** (Vehicle Groups) → **Fahrzeuge** (Vehicles)
-- **Checklisten** (Checklists) assigned to vehicles/groups
-- **TÜV-Termine** (inspection deadlines) with expiration tracking
-- Role hierarchy: Benutzer < Gruppenleiter < Organisator < Admin
+- **Checklisten** (Checklists) assigned to vehicles/groups  
+- **TÜV-Termine** (mandatory German vehicle inspections) with expiration tracking
+- Role hierarchy: `Benutzer` < `Gruppenleiter` < `Organisator` < `Admin`
 
-### Expected Database Schema
-```sql
--- Core entities
-benutzer: id, username, email, password_hash, rolle, created_at
-gruppen: id, name, gruppenleiter_id, created_at
-fahrzeuggruppen: id, name, gruppe_id, created_at
-fahrzeuge: id, kennzeichen, typ (MTF/RTB/FR), fahrzeuggruppe_id, created_at
-
--- TÜV tracking
-tuv_termine: id, fahrzeug_id, ablauf_datum, status, letzte_pruefung, created_at
-
--- Checklists
-checklisten: id, name, fahrzeuggruppe_id, ersteller_id, template, created_at
-checklist_items: id, checkliste_id, beschreibung, pflicht, reihenfolge, created_at
-checklist_ausfuehrungen: id, checkliste_id, fahrzeug_id, benutzer_id, status, started_at, completed_at
-item_ergebnisse: id, ausfuehrung_id, item_id, status (ok/fehler/nicht_pruefbar), kommentar, created_at
-
--- Audit log
-audit_log: id, benutzer_id, aktion, ressource_typ, ressource_id, alte_werte, neue_werte, timestamp
+### Backend SQLAlchemy ↔ Android Room Mapping
+```kotlin
+// EXACT 1:1 mapping - table names match backend
+Backend (Python)              Android Room Entity (Kotlin)
+├── benutzer                 ├── UserEntity(tableName="benutzer")
+├── gruppen                  ├── GroupEntity(tableName="gruppen")  
+├── fahrzeuggruppen          ├── VehicleGroupEntity(tableName="fahrzeuggruppen")
+├── fahrzeuge                ├── VehicleEntity(tableName="fahrzeuge")
+├── fahrzeugtyp              ├── VehicleTypeEntity(tableName="fahrzeugtyp")
+├── tuv_termine              ├── TuvAppointmentEntity(tableName="tuv_termine")
+├── checklisten              ├── ChecklistEntity(tableName="checklisten")
+└── checklist_items          └── ChecklistItemEntity(tableName="checklist_items")
 ```
-- **Frontend**: Electron (TypeScript main + vanilla JS renderer) 
-- **Backend**: FastAPI + SQLAlchemy + SQLite (dev) / PostgreSQL (prod)
-- **IPC**: Secure contextBridge pattern with preload script
-- **UI Pattern**: Component-based vanilla JS with inline `onclick` handlers
-- **State**: Custom stores (`appStore`, `dataManager`) with caching layer
-- **Styling**: CSS custom properties with fire department theme
+
+**Key Pattern**: Room entities in `data/local/entity/` have `syncStatus`, `lastModified`, `version` fields for offline-first sync that don't exist in backend models.
 
 
 ## Critical Development Workflows
 
-### Building & Running
-```bash
-# Backend (start first)
-cd backend
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-# ⚠️ CRITICAL: Do NOT run any other commands in this terminal window!
-# The backend process must remain running continuously during development.
+### Building & Running (UPDATED FOR ANDROID-FIRST)
 
-# Frontend (requires backend running, always specify repository path)
-cd "e:\Github\Checklist-App\frontend"     # Always use full repository path
-npm run build                             # Required: Generate config, compile TS → JS, copy assets
-npm start                                 # Launch Electron (runs prestart build automatically)
-npm run dev                               # Watch mode with concurrently
+**Backend (start first):**
+```bash
+cd backend
+.\start-backend.ps1                       # Auto-detects network IP for Android debugging
+# OR manually specify:
+python -m uvicorn app.main:app --host 10.20.1.108 --port 8000 --reload
+# ⚠️ CRITICAL: Use network IP (not 127.0.0.1) for Android device access
 ```
 
-### Configuration System (NEW)
-The frontend now uses **configurable backend URLs** instead of hardcoded IPs:
-
+**Android Native (Primary):**
 ```bash
-# Default development (127.0.0.1:8000)
-npm run build
+cd android-native
+./gradlew assembleDebug                   # Build native Android APK
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
 
-# Custom backend server
-BACKEND_HOST=192.168.1.100 npm run build
+**Android Development in Android Studio:**
+1. Open `android-native/` folder in Android Studio (NOT the root)
+2. Ensure backend runs on network IP (use `start-backend.ps1`)
+3. Run/Debug directly from Android Studio
+
+**Secondary Platforms:**
+```bash
+# Web (vanilla JS SPA)
+cd web && npm start
+
+# Desktop (Electron wrapper around web)
+cd desktop && npm run build && npm start
+```
+
+### Build System Architecture
+
+**Android Gradle KSP Pattern:**
+- Uses **KSP** (not KAPT) to avoid JDK 11+ compatibility issues
+- Hilt annotation processing: `ksp("com.google.dagger:hilt-android-compiler")`  
+- Room code generation: `ksp("androidx.room:room-compiler")`
+- Build variants: `debug` (local IP) vs `release` (production URL)
 
 # Production HTTPS setup
 BACKEND_HOST=api.example.com BACKEND_PROTOCOL=https npm run build
@@ -96,108 +116,137 @@ BACKEND_HOST=api.example.com BACKEND_PROTOCOL=https npm run build
 - `BACKEND_PROTOCOL` - http/https
 - `BACKEND_WS_PROTOCOL` - ws/wss
 
-### Testing
+### Testing & Debugging
 ```bash
 # Backend API tests (backend must be running)
 cd backend
 python test_api.py                        # Basic API functionality tests
 python test_vehicle_editing.py           # Vehicle management tests
-# ⚠️ Frontend testing framework not yet implemented
+
+# Android debugging (requires backend running on network IP)
+adb logcat -d | Select-String -Pattern "checklist|feuerwehr|ERROR"  # Check app logs
+adb shell am force-stop com.feuerwehr.checklist.debug              # Force restart
+adb uninstall com.feuerwehr.checklist.debug                        # Clean reinstall
+
+# Test backend API directly
+Invoke-WebRequest -Uri "http://10.20.1.108:8000/auth/login" -Method POST -ContentType "application/json" -Body '{"username":"admin","password":"admin"}'
 ```
 
 ### Project Structure
 ```
-frontend/src/
-├── main/                    # Main process (Node.js context)
-│   ├── main.ts             # App lifecycle, window creation, security CSP
-│   ├── preload.ts          # contextBridge API exposure (electronAPI)
-│   ├── backend.ts          # HTTP client for FastAPI communication
-│   └── ipc/handlers.ts     # IPC request/response handlers
-├── renderer/               # Renderer process (Web context) 
-│   ├── index.html          # SPA with German UI, includes all component scripts (template)
-│   ├── js/renderer.js      # Main app controller, navigation, authentication
-│   ├── components/         # Page components (vanilla JS classes)
-│   ├── stores/             # dataManager (caching), appStore (state), authManager
-│   ├── utils/configUtils.js # Configuration helpers for API calls
-│   └── styles/main.css     # Fire department red theme, CSS custom properties
-├── shared/                 # Shared utilities
-│   ├── config.ts           # Configuration management for main process
-│   └── types.ts            # TypeScript type definitions
+android-native/
+├── app/build.gradle.kts    # Gradle KSP build configuration
+├── src/main/kotlin/com/feuerwehr/checklist/
+│   ├── ChecklistApplication.kt        # Hilt Application entry point
+│   ├── presentation/                  # UI layer (Compose screens + ViewModels)
+│   │   ├── MainActivity.kt           # Single Activity with Compose navigation
+│   │   ├── screen/                   # Jetpack Compose screens
+│   │   ├── viewmodel/                # ViewModels with Hilt injection
+│   │   ├── navigation/               # Navigation Component setup
+│   │   └── theme/                    # Material Design 3 theme
+│   ├── domain/                       # Business logic + use cases
+│   │   ├── model/                    # Domain models
+│   │   ├── repository/               # Repository interfaces
+│   │   └── usecase/                  # Business use cases
+│   ├── data/                         # Data layer implementation
+│   │   ├── local/entity/             # Room entities (mirror backend tables)
+│   │   ├── local/dao/                # Room DAOs
+│   │   ├── remote/api/               # Retrofit API interfaces
+│   │   └── repository/               # Repository implementations
+│   └── di/                           # Hilt dependency injection modules
 backend/app/
-├── main.py                 # FastAPI app, CORS, router includes
+├── main.py                 # FastAPI app with enhanced mobile endpoints
 ├── models/                 # SQLAlchemy domain models (German naming)
-├── api/routes/             # REST endpoints by feature
+├── api/routes/             # REST endpoints + sync endpoints for mobile
 ├── core/                   # Settings, security, dependencies  
 └── services/               # Business logic, seed data
-scripts/
-└── generate-config.js      # Build-time configuration generator
+shared/                     # Kotlin Multiplatform business logic
+├── src/commonMain/kotlin/  # Shared domain models and interfaces
+└── build.gradle.kts        # KMM configuration
 ```
 
 ## Core Implementation Patterns
 
-### Component Architecture (Vanilla JS)
-```javascript
-// Pattern: Class-based components with render() + mount() lifecycle
-class FahrzeugtypenPage {
-  async render() {
-    await this.loadData();
-    return `<div>...</div>`; // Return HTML string
-  }
-  
-  mount() {
-    this.setupEventListeners(); // Called after DOM insertion
-  }
+### Android MVVM + Hilt Pattern
+```kotlin
+// Repository with Room + Retrofit
+@Singleton
+class UserRepositoryImpl @Inject constructor(
+    private val userDao: UserDao,
+    private val userApi: UserApi,
+    private val syncManager: SyncManager
+) : UserRepository {
+    override suspend fun getUsers(): Flow<List<User>> = 
+        userDao.getAllUsers().map { entities -> entities.map { it.toDomain() } }
 }
 
-// Global exposure for onclick handlers
-window.fahrzeugtypenPage = new FahrzeugtypenPage();
-
-// Usage in HTML: onclick="fahrzeugtypenPage.methodName()"  
-// ⚠️ Prefer onclick over addEventListener for main actions (timing issues)
+// ViewModel with Hilt injection
+@HiltViewModel
+class LoginViewModel @Inject constructor(
+    private val userRepository: UserRepository,
+    private val authUseCase: AuthenticateUserUseCase
+) : ViewModel() {
+    // State management with StateFlow
+    private val _uiState = MutableStateFlow(LoginUiState())
+    val uiState = _uiState.asStateFlow()
+}
 ```
 
-### Secure IPC Communication
-```typescript
-// preload.ts - Expose safe APIs via contextBridge
-contextBridge.exposeInMainWorld('electronAPI', {
-  listVehicles: () => ipcRenderer.invoke('api-list-vehicles'),
-  createVehicleType: (data) => ipcRenderer.invoke('api-create-vehicle-type', data)
-});
-
-// renderer: Access via window.electronAPI
-const vehicles = await window.electronAPI.listVehicles();
+### Room Entity Pattern (Mirrors Backend)
+```kotlin
+// EXACT table name matching backend SQLAlchemy
+@Entity(tableName = "benutzer")  // Matches backend 'benutzer' table
+data class UserEntity(
+    @PrimaryKey val id: Int,
+    val username: String,
+    val rolle: String,
+    val createdAt: Instant,
+    // Sync fields for offline-first
+    val syncStatus: SyncStatus = SyncStatus.SYNCED,
+    val version: Int = 1
+)
 ```
 
-### Data Flow Pattern
-```javascript
-// 1. Component calls dataManager
-await window.dataManager.loadVehicles();
-
-// 2. dataManager calls electronAPI  
-const response = await window.electronAPI.listVehicles();
-
-// 3. electronAPI invokes IPC handler
-ipcMain.handle('api-list-vehicles', () => backendClient.listVehicles());
-
-// 4. backendClient makes HTTP request to FastAPI
-const res = await fetch(`${this.baseUrl}/vehicles`, { headers: authHeaders });
+### Jetpack Compose Navigation Pattern
+```kotlin
+// Type-safe navigation with Hilt ViewModels
+@Composable
+fun ChecklistNavigation() {
+    val navController = rememberNavController()
+    
+    NavHost(navController = navController, startDestination = "login") {
+        composable("login") { 
+            LoginScreen(
+                onNavigateToHome = { navController.navigate("dashboard") }
+            )
+        }
+        composable("dashboard") { 
+            DashboardScreen(
+                onNavigateToVehicles = { navController.navigate("vehicles") }
+            )
+        }
+    }
+}
 ```
 
-### Configuration-Based API Calls (NEW)
-```javascript
-// Renderer components use configUtils for all API calls
-const response = await window.configUtils.fetchBackend('/vehicles', {
-  method: 'GET'
-});
-
-// configUtils automatically handles:
-// - Backend URL resolution from runtime config
-// - Authentication token injection
-// - Error handling and fallbacks
-
-// Direct access to configuration
-const backendUrl = window.getBackendUrl();
-const config = window.APP_CONFIG.backend;
+### Offline-First Sync Pattern
+```kotlin
+// Repository handles offline-first with background sync
+class VehicleRepositoryImpl {
+    // Always return local data first
+    override fun getVehicles(): Flow<List<Vehicle>> = 
+        vehicleDao.getAllVehicles().map { entities -> entities.map { it.toDomain() } }
+    
+    // Background sync with conflict resolution
+    override suspend fun syncVehicles() {
+        try {
+            val remoteVehicles = vehicleApi.getVehicles()
+            syncManager.resolveConflicts(remoteVehicles, localVehicles)
+        } catch (e: Exception) {
+            // Graceful degradation - offline mode
+        }
+    }
+}
 ```
 
 ### German Domain Terminology
@@ -260,17 +309,43 @@ class Fahrzeug(Base):
 - **Role-based Access**: Backend enforces permissions, frontend adapts UI based on user role
 
 ## Development Tips
-- **Build First**: Always `npm run build` before `npm start` (TypeScript compilation required)
-- **Repository Path**: Always specify full repository path when running `npm start` in new terminals
-- **Backend Terminal**: Never run other commands in the backend terminal - dedicated process only
-- **Configuration**: All hardcoded IPs have been replaced with configurable environment variables
-- **Component Events**: Use `onclick="componentName.method()"` for reliability over addEventListener
-- **Cache Strategy**: dataManager implements 5-minute cache with `forceRefresh` option  
-- **German Context**: All user-facing text, entity names, and database fields use German terminology
-- **Debugging**: Check both Electron DevTools (renderer) and terminal output (main process)
+- **Android Studio**: Open `android-native/` folder (NOT the root) for proper Android development environment
+- **Backend First**: Always start backend on network IP using `.\start-backend.ps1` before Android development
+- **KSP Build System**: Use Kotlin Symbol Processing (not KAPT) to avoid JDK compatibility issues
+- **Room Database**: Entity schemas must exactly match backend SQLAlchemy table names and structures
+- **Hilt DI**: All ViewModels and repositories use `@Inject` constructor with proper module configuration
+- **Offline-First**: Always return local Room data immediately, sync in background with conflict resolution
+- **German Domain**: All entity names, database fields, and UI text use authentic German fire department terminology
+- **Network Configuration**: Android devices require backend on network IP (use `ipconfig` to find local IP)
+
+## Platform-Specific Debugging
+### Android Native Issues
+- **Build Issues**: Ensure using KSP (not KAPT) to avoid JDK compatibility problems
+- **Network Access**: Backend must run on network IP (not 127.0.0.1) for Android device access
+- **Common Errors**: `Failed to fetch` = backend URL incorrect; Room database crashes = entity schema mismatch
+- **Debugging**: Use `adb logcat -d | Select-String -Pattern "checklist|feuerwehr|ERROR"` to check app logs
+- **Clean Builds**: `./gradlew clean assembleDebug` or force-stop app with `adb shell am force-stop com.feuerwehr.checklist.debug`
+
+### Android WebView Issues (Legacy)
+- **Network Security**: Check `android/app/src/main/res/xml/network_security_config.xml` for HTTPS/HTTP domain configuration
+- **Common Errors**: `Failed to fetch` = CORS/backend URL mismatch; `electronAPI not function` = web-api-adapter.js not loaded
+- **Cache Issues**: Uninstall/reinstall app (`adb uninstall com.feuerwehr.checklist.debug`) to clear WebView cache
+- **URL Configuration**: Debug builds use `http://10.20.1.108:8000`, release builds use `https://checklist.svoboda.click`
+
+### Backend Static File Serving
+```python
+# FastAPI serves frontend at multiple paths for compatibility:
+app.mount("/styles", StaticFiles(directory=os.path.join(frontend_path, "styles")))  # Static assets
+@app.get("/") 
+async def serve_frontend(): return FileResponse(os.path.join(frontend_path, "index.html"))  # SPA root
+@app.get("/config.js")  
+async def serve_config(): return FileResponse(os.path.join(frontend_path, "config.js"))   # Runtime config
+```
 
 ## Known TODOs & Technical Debt
 - **Testing**: Frontend testing framework needs implementation (backend has basic test files)
 - ✅ **IP Configuration**: ~~All hardcoded IPs need to be replaced~~ - COMPLETED: Now uses configurable environment variables
 - ✅ **Environment Variables**: ~~Centralize all URL configurations~~ - COMPLETED: `.env` files with build-time generation
 - ✅ **CSP Updates**: ~~Content Security Policy hardcodes backend URLs~~ - COMPLETED: Dynamic CSP generation
+- ✅ **Android WebView App**: ~~Mobile deployment~~ - COMPLETED: Native Android wrapper with offline support
+- ✅ **Multi-Platform API**: ~~Web/mobile compatibility~~ - COMPLETED: web-api-adapter.js for platform abstraction

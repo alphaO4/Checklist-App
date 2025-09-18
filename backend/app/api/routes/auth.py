@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi.security import OAuth2PasswordRequestForm
@@ -15,6 +15,39 @@ from ...core.security import verify_password, create_access_token, hash_password
 from ...core.deps import get_current_user
 
 router = APIRouter()
+
+
+@router.options("/login")
+def login_options():
+    """Handle CORS preflight requests for login endpoint"""
+    response = Response()
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.status_code = 200
+    return response
+
+
+@router.options("/me")
+def me_options():
+    """Handle CORS preflight requests for me endpoint"""
+    response = Response()
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.status_code = 200
+    return response
+
+
+@router.options("/logout")
+def logout_options():
+    """Handle CORS preflight requests for logout endpoint"""
+    response = Response()
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.status_code = 200
+    return response
 
 
 def check_admin_role(current_user: Benutzer):

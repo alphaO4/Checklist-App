@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Production configuration for checklist.svoboda.click -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">checklist.svoboda.click</domain>
+        <trust-anchors>
+            <!-- Trust system CAs for production HTTPS -->
+            <certificates src="system"/>
+        </trust-anchors>
+        <pin-set expiration="2026-01-01">
+            <!-- Add certificate pinning for additional security -->
+            <!-- Replace with actual certificate pins when available -->
+            <!-- <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin> -->
+        </pin-set>
+    </domain-config>
+
+    <!-- Development/localhost configuration -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain>127.0.0.1</domain>
+        <domain>localhost</domain>
+        <domain>10.0.2.2</domain>
+        <domain>10.20.1.108</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </domain-config>
+
+    <!-- Debug overrides for development -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </debug-overrides>
+
+    <!-- Base configuration -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -106,11 +106,18 @@ def create_checklist(
     db.commit()
     db.refresh(db_checklist)
     
-    # Prepare response with items
-    result = ChecklisteWithItems.model_validate(db_checklist)
-    result.items = [ChecklistItemSchema.model_validate(item) for item in items]
+    # Create response with only the newly created items to avoid validation issues
+    checklist_dict = {
+        "id": db_checklist.id,
+        "name": db_checklist.name,
+        "fahrzeuggruppe_id": db_checklist.fahrzeuggruppe_id,
+        "template": db_checklist.template,
+        "ersteller_id": db_checklist.ersteller_id,
+        "created_at": db_checklist.created_at,
+        "items": [ChecklistItemSchema.model_validate(item) for item in items]
+    }
     
-    return result
+    return ChecklisteWithItems.model_validate(checklist_dict)
 
 
 @router.get("/{checklist_id}", response_model=ChecklisteWithItems)
@@ -408,3 +415,105 @@ def get_run_results(
     ).all()
     
     return [ItemErgebnisSchema.model_validate(result) for result in results]
+
+
+@router.post("/import-csv-templates")
+def import_csv_templates(
+    db: Session = Depends(get_db),
+    current_user: Benutzer = Depends(get_current_user)
+):
+    """Import checklist templates from CSV files in checklists folder"""
+    from ...services.checklist_parser import checklist_parser
+    
+    # Only organisator and admin can import templates
+    if current_user.rolle not in ["organisator", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Organisator oder Admin Berechtigung erforderlich"
+        )
+    
+    try:
+        created_templates = checklist_parser.create_checklist_templates(db)
+        
+        return {
+            "message": f"Erfolgreich {len(created_templates)} Checklisten-Templates importiert",
+            "templates": [
+                {
+                    "id": template.id,
+                    "name": template.name,
+                    "item_count": len([item for item in template.items])
+                } for template in created_templates
+            ]
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Fehler beim Import: {str(e)}"
+        )
+
+
+@router.get("/csv-summary")
+def get_csv_summary(
+    current_user: Benutzer = Depends(get_current_user)
+):
+    """Get summary of available CSV checklists"""
+    from ...services.checklist_parser import checklist_parser
+    
+    try:
+        summary = checklist_parser.get_checklist_summary()
+        return summary
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Fehler beim Lesen der CSV-Dateien: {str(e)}"
+        )
+
+
+@router.get("/{checklist_id}/vehicles")
+def get_checklist_vehicles(
+    checklist_id: int,
+    db: Session = Depends(get_db),
+    current_user: Benutzer = Depends(get_current_user)
+):
+    """Get all vehicles that can use this checklist (through fahrzeuggruppe)"""
+    # Check if checklist exists
+    checklist = db.get(Checkliste, checklist_id)
+    if not checklist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Checkliste nicht gefunden"
+        )
+    
+    # Get all vehicles in the same fahrzeuggruppe
+    vehicles = db.query(Fahrzeug).filter(
+        Fahrzeug.fahrzeuggruppe_id == checklist.fahrzeuggruppe_id
+    ).options(joinedload(Fahrzeug.fahrzeugtyp)).all()
+    
+    # Get active executions for this checklist
+    active_executions = db.query(ChecklistAusfuehrung).filter(
+        ChecklistAusfuehrung.checkliste_id == checklist_id,
+        ChecklistAusfuehrung.status == "started"
+    ).all()
+    
+    execution_map = {exec.fahrzeug_id: exec.id for exec in active_executions}
+    
+    return {
+        "checklist_id": checklist_id,
+        "checklist_name": checklist.name,
+        "fahrzeuggruppe_id": checklist.fahrzeuggruppe_id,
+        "available_vehicles": [
+            {
+                "id": vehicle.id,
+                "kennzeichen": vehicle.kennzeichen,
+                "fahrzeugtyp": {
+                    "id": vehicle.fahrzeugtyp.id,
+                    "name": vehicle.fahrzeugtyp.name,
+                    "beschreibung": vehicle.fahrzeugtyp.beschreibung
+                } if vehicle.fahrzeugtyp else None,
+                "is_active": vehicle.id in execution_map,
+                "active_execution_id": execution_map.get(vehicle.id)
+            } for vehicle in vehicles
+        ]
+    }

@@ -1,0 +1,46 @@
+package com.feuerwehr.checklist.data.local.entity
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import androidx.room.ForeignKey
+import androidx.room.Index
+import kotlinx.datetime.Instant
+
+/**
+ * Room entity for Group (Gruppe)
+ * Mirrors backend SQLAlchemy model: app/models/group.py -> Gruppe
+ */
+@Entity(
+    tableName = "gruppen",
+    foreignKeys = [
+        ForeignKey(
+            entity = UserEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["gruppenleiterId"],
+            onDelete = ForeignKey.SET_NULL
+        ),
+        ForeignKey(
+            entity = VehicleGroupEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["fahrzeuggrupeId"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
+    indices = [
+        Index(value = ["gruppenleiterId"]),
+        Index(value = ["fahrzeuggrupeId"]),
+        Index(value = ["name"])
+    ]
+)
+data class GroupEntity(
+    @PrimaryKey val id: Int,
+    val name: String,
+    val gruppenleiterId: Int?,           // Group leader user ID
+    val fahrzeuggrupeId: Int?,          // Vehicle group ID
+    val createdAt: Instant,
+    
+    // Sync metadata
+    val syncStatus: SyncStatus = SyncStatus.SYNCED,
+    val lastModified: Instant = createdAt,
+    val version: Int = 1
+)

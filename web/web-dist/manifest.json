@@ -1,0 +1,22 @@
+{
+  "name": "Feuerwehr Fahrzeugprüfung",
+  "short_name": "FFW Checklist",
+  "description": "Vehicle Inspection Checklist for German Fire Departments",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#c41e3a",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

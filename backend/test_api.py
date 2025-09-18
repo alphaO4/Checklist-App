@@ -2,7 +2,7 @@ import requests
 import json
 
 # Test the backend API with the new relationship structure
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "http://10.20.1.108:8000"
 
 def test_login():
     """Test authentication"""

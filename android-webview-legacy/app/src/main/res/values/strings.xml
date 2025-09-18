@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Feuerwehr Checklist</string>
+    
+    <!-- Main Activity -->
+    <string name="loading">Wird geladen…</string>
+    <string name="error_loading">Fehler beim Laden der Anwendung</string>
+    <string name="retry">Erneut versuchen</string>
+    <string name="offline_mode">Offline-Modus</string>
+    
+    <!-- Connection Status -->
+    <string name="connecting">Verbindung wird hergestellt…</string>
+    <string name="connected">Verbunden</string>
+    <string name="disconnected">Getrennt</string>
+    <string name="offline">Offline</string>
+    
+    <!-- Splash Screen -->
+    <string name="initializing">Initialisierung…</string>
+    <string name="checking_connection">Verbindung wird überprüft…</string>
+    <string name="loading_app">App wird geladen…</string>
+    
+    <!-- Error Messages -->
+    <string name="error_network">Netzwerkfehler</string>
+    <string name="error_server">Serverfehler</string>
+    <string name="error_timeout">Zeitüberschreitung</string>
+    <string name="error_ssl">SSL-Verbindungsfehler</string>
+    
+    <!-- Actions -->
+    <string name="refresh">Aktualisieren</string>
+    <string name="go_online">Online gehen</string>
+    <string name="stay_offline">Offline bleiben</string>
+    
+    <!-- WebView -->
+    <string name="enable_javascript">JavaScript muss aktiviert sein</string>
+    <string name="enable_cookies">Cookies müssen aktiviert sein</string>
+    
+    <!-- Notifications -->
+    <string name="sync_complete">Synchronisation abgeschlossen</string>
+    <string name="sync_failed">Synchronisation fehlgeschlagen</string>
+    
+    <!-- Menu Items -->
+    <string name="menu_refresh">Aktualisieren</string>
+    <string name="menu_settings">Einstellungen</string>
+    <string name="menu_about">Über</string>
+    <string name="menu_help">Hilfe</string>
+</resources>

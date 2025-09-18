@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fire Department Theme Colors -->
+    <color name="feuerwehr_red">#DC143C</color>
+    <color name="feuerwehr_red_dark">#B71C1C</color>
+    <color name="feuerwehr_red_light">#FF5722</color>
+    
+    <!-- Status Colors -->
+    <color name="status_online">#4CAF50</color>
+    <color name="status_offline">#F44336</color>
+    <color name="status_connecting">#FF9800</color>
+    
+    <!-- Background Colors -->
+    <color name="connection_status_bg">#424242</color>
+    <color name="fab_offline">#607D8B</color>
+    
+    <!-- Material Design Colors -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- Extended Colors for Material Design 3 -->
+    <color name="orange_100">#FFCCBC</color>
+    <color name="orange_500">#FF9800</color>
+    <color name="red_100">#FFCDD2</color>
+    <color name="red_500">#F44336</color>
+    <color name="gray_100">#F5F5F5</color>
+    <color name="gray_700">#616161</color>
+</resources>
