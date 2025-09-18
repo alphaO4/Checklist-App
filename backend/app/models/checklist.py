@@ -1,6 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func, Boolean, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func, Boolean, Text, JSON, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from ..db.session import Base
+from .checklist_item_types import ChecklistItemType
+import enum
 
 
 class TuvTermin(Base):
@@ -34,12 +36,29 @@ class Checkliste(Base):
     ausfuehrungen = relationship("ChecklistAusfuehrung", back_populates="checkliste", cascade="all, delete-orphan")
 
 
+class ChecklistItemTypeEnum(enum.Enum):
+    """Enum for checklist item types"""
+    VEHICLE_INFO = "vehicle_info"
+    RATING_1_6 = "rating_1_6"
+    PERCENTAGE = "percentage"
+    ATEMSCHUTZ = "atemschutz"
+    STANDARD = "standard"
+    QUANTITY = "quantity"
+    DATE_CHECK = "date_check"
+    STATUS_CHECK = "status_check"
+
+
 class ChecklistItem(Base):
     __tablename__ = "checklist_items"
 
     id = Column(Integer, primary_key=True, index=True)
     checkliste_id = Column(Integer, ForeignKey("checklisten.id"), nullable=False)
     beschreibung = Column(String(500), nullable=False)
+    item_type = Column(SQLEnum(ChecklistItemTypeEnum), default=ChecklistItemTypeEnum.STANDARD)
+    validation_config = Column(JSON, nullable=True)  # Store validation rules as JSON
+    editable_roles = Column(JSON, nullable=True)     # Roles that can edit this item
+    requires_tuv = Column(Boolean, default=False)
+    subcategories = Column(JSON, nullable=True)      # For complex items like Atemschutz
     pflicht = Column(Boolean, default=True)
     reihenfolge = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
@@ -74,6 +93,11 @@ class ItemErgebnis(Base):
     ausfuehrung_id = Column(Integer, ForeignKey("checklist_ausfuehrungen.id"), nullable=False)
     item_id = Column(Integer, ForeignKey("checklist_items.id"), nullable=False)
     status = Column(String(50), default="ok")
+    wert = Column(JSON, nullable=True)              # Store item value (rating, percentage, etc.)
+    vorhanden = Column(Boolean, nullable=True)      # For standard items - is item present?
+    tuv_datum = Column(DateTime, nullable=True)     # TÜV expiration date
+    tuv_status = Column(String(50), nullable=True)  # current, warning, expired
+    menge = Column(Integer, nullable=True)          # For quantity items
     kommentar = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 

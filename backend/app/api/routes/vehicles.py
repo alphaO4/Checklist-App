@@ -7,7 +7,7 @@ from datetime import datetime
 from ...db.session import get_db
 from ...models.vehicle import Fahrzeug, FahrzeugGruppe
 from ...models.vehicle_type import FahrzeugTyp
-from ...models.checklist import TuvTermin
+from ...models.checklist import TuvTermin, Checkliste
 from ...models.user import Benutzer
 from ...schemas.vehicle import (
     Fahrzeug as FahrzeugSchema, FahrzeugCreate, FahrzeugUpdate, FahrzeugList, FahrzeugWithGroup
@@ -362,3 +362,155 @@ def get_vehicle_types(current_user: Benutzer = Depends(get_current_user)):
             {"code": "RTW", "name": "Rettungstransportwagen"}
         ]
     }
+
+
+@router.get("/{vehicle_id}/checklists")
+def get_vehicle_checklists(
+    vehicle_id: int,
+    template: Optional[bool] = Query(None, description="Filter templates only"),
+    db: Session = Depends(get_db),
+    current_user: Benutzer = Depends(get_current_user)
+):
+    """Get all checklists available for a specific vehicle through its fahrzeuggruppe"""
+    # Check if vehicle exists
+    vehicle = db.get(Fahrzeug, vehicle_id)
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fahrzeug nicht gefunden"
+        )
+    
+    # Get checklists from the vehicle's fahrzeuggruppe
+    query = db.query(Checkliste).filter(
+        Checkliste.fahrzeuggruppe_id == vehicle.fahrzeuggruppe_id
+    )
+    
+    # Apply template filter if specified
+    if template is not None:
+        query = query.filter(Checkliste.template == template)
+    
+    checklists = query.all()
+    
+    return {
+        "vehicle_id": vehicle_id,
+        "kennzeichen": vehicle.kennzeichen,
+        "fahrzeuggruppe_id": vehicle.fahrzeuggruppe_id,
+        "checklists": [
+            {
+                "id": checklist.id,
+                "name": checklist.name,
+                "template": checklist.template,
+                "created_at": checklist.created_at.isoformat(),
+                "fahrzeuggruppe_id": checklist.fahrzeuggruppe_id
+            } for checklist in checklists
+        ]
+    }
+
+
+@router.get("/{vehicle_id}/available-checklists")
+def get_available_checklists_for_vehicle(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    current_user: Benutzer = Depends(get_current_user)
+):
+    """Get all checklists available for execution on a specific vehicle"""
+    from ...models.checklist import Checkliste, ChecklistAusfuehrung
+    
+    # Check if vehicle exists
+    vehicle = db.get(Fahrzeug, vehicle_id)
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fahrzeug nicht gefunden"
+        )
+    
+    # Get all checklists for this vehicle's group (excluding templates)
+    available_checklists = db.query(Checkliste).filter(
+        Checkliste.fahrzeuggruppe_id == vehicle.fahrzeuggruppe_id,
+        Checkliste.template == False
+    ).all()
+    
+    # Get active executions for this vehicle
+    active_executions = db.query(ChecklistAusfuehrung).filter(
+        ChecklistAusfuehrung.fahrzeug_id == vehicle_id,
+        ChecklistAusfuehrung.status == "started"
+    ).all()
+    
+    active_checklist_ids = {exec.checkliste_id for exec in active_executions}
+    
+    # Create a mapping of checklist_id to execution_id for quick lookup
+    execution_map = {exec.checkliste_id: exec.id for exec in active_executions}
+    
+    return {
+        "vehicle_id": vehicle_id,
+        "kennzeichen": vehicle.kennzeichen,
+        "available_checklists": [
+            {
+                "id": checklist.id,
+                "name": checklist.name,
+                "fahrzeuggruppe_id": checklist.fahrzeuggruppe_id,
+                "created_at": checklist.created_at.isoformat(),
+                "is_active": checklist.id in active_checklist_ids,
+                "active_execution_id": execution_map.get(checklist.id)
+            } for checklist in available_checklists
+        ]
+    }
+
+
+@router.post("/{vehicle_id}/checklists/{checklist_id}/start")
+def start_checklist_for_vehicle(
+    vehicle_id: int,
+    checklist_id: int,
+    db: Session = Depends(get_db),
+    current_user: Benutzer = Depends(get_current_user)
+):
+    """Start a checklist execution for a specific vehicle"""
+    from ...models.checklist import Checkliste, ChecklistAusfuehrung
+    from ...schemas.checklist import ChecklistAusfuehrung as ChecklistAusfuehrungSchema
+    
+    # Check if vehicle exists
+    vehicle = db.get(Fahrzeug, vehicle_id)
+    if not vehicle:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fahrzeug nicht gefunden"
+        )
+    
+    # Check if checklist exists and is available for this vehicle
+    checklist = db.query(Checkliste).filter(
+        Checkliste.id == checklist_id,
+        Checkliste.fahrzeuggruppe_id == vehicle.fahrzeuggruppe_id,
+        Checkliste.template == False
+    ).first()
+    
+    if not checklist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Checkliste nicht gefunden oder nicht verfügbar für dieses Fahrzeug"
+        )
+    
+    # Check if there's already an active execution
+    existing_run = db.query(ChecklistAusfuehrung).filter(
+        ChecklistAusfuehrung.checkliste_id == checklist_id,
+        ChecklistAusfuehrung.fahrzeug_id == vehicle_id,
+        ChecklistAusfuehrung.status == "started"
+    ).first()
+    
+    if existing_run:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Aktive Durchführung für diese Kombination bereits vorhanden"
+        )
+    
+    # Create new execution
+    db_run = ChecklistAusfuehrung(
+        checkliste_id=checklist_id,
+        fahrzeug_id=vehicle_id,
+        benutzer_id=current_user.id
+    )
+    
+    db.add(db_run)
+    db.commit()
+    db.refresh(db_run)
+    
+    return ChecklistAusfuehrungSchema.model_validate(db_run)

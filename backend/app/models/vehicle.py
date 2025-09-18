@@ -14,6 +14,16 @@ class FahrzeugGruppe(Base):
     gruppe = relationship("Gruppe", primaryjoin="FahrzeugGruppe.id == Gruppe.fahrzeuggruppe_id", back_populates="fahrzeuggruppe")
     fahrzeuge = relationship("Fahrzeug", back_populates="fahrzeuggruppe", cascade="all, delete-orphan")
     checklisten = relationship("Checkliste", back_populates="fahrzeuggruppe", cascade="all, delete-orphan")
+    
+    @property
+    def active_checklists(self):
+        """Get all active (non-template) checklists for this vehicle group"""
+        return [c for c in self.checklisten if not c.template]
+    
+    @property
+    def template_checklists(self):
+        """Get all template checklists for this vehicle group"""
+        return [c for c in self.checklisten if c.template]
 
 
 class Fahrzeug(Base):
@@ -30,3 +40,10 @@ class Fahrzeug(Base):
     fahrzeuggruppe = relationship("FahrzeugGruppe", back_populates="fahrzeuge")
     tuv_termine = relationship("TuvTermin", back_populates="fahrzeug", cascade="all, delete-orphan")
     ausfuehrungen = relationship("ChecklistAusfuehrung", back_populates="fahrzeug", cascade="all, delete-orphan")
+    
+    @property
+    def available_checklists(self):
+        """Get all checklists available for this vehicle through its fahrzeuggruppe"""
+        if self.fahrzeuggruppe:
+            return self.fahrzeuggruppe.checklisten
+        return []

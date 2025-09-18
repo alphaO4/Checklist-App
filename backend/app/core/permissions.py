@@ -80,3 +80,40 @@ def has_role_level(current_user: Benutzer, required_level: str) -> bool:
     user_level = ROLE_LEVELS.get(current_user.rolle, 0)
     required = ROLE_LEVELS.get(required_level, 0)
     return user_level >= required
+
+
+def check_checklist_edit_permission(current_user: Benutzer):
+    """Check if user can edit checklists (Organisator role or higher)"""
+    if current_user.rolle not in ["organisator", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Nur Benutzer in der Organisator-Gruppe oder Administratoren können Checklisten bearbeiten"
+        )
+
+
+def can_edit_checklist_item(current_user: Benutzer, item_editable_roles: list) -> bool:
+    """Check if user can edit a specific checklist item based on its editable roles"""
+    if not item_editable_roles:
+        # Default to Organisator if no specific roles defined
+        item_editable_roles = ["organisator", "admin"]
+    
+    return current_user.rolle in item_editable_roles
+
+
+def check_item_edit_permission(current_user: Benutzer, item_editable_roles: list):
+    """Check if user can edit a specific checklist item"""
+    if not can_edit_checklist_item(current_user, item_editable_roles):
+        roles_str = ", ".join(item_editable_roles or ["organisator", "admin"])
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Nur Benutzer in folgenden Gruppen können diesen Punkt bearbeiten: {roles_str}"
+        )
+
+
+def check_template_creation_permission(current_user: Benutzer):
+    """Check if user can create checklist templates"""
+    if current_user.rolle not in ["organisator", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Nur Organisator oder Admin können Checklisten-Templates erstellen"
+        )

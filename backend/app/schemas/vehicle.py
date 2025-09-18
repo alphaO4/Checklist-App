@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime
 from .vehicle_type import FahrzeugTyp
 
@@ -22,6 +22,11 @@ class FahrzeugGruppe(FahrzeugGruppeBase):
 
     class Config:
         from_attributes = True
+
+
+class FahrzeugGruppeWithChecklists(FahrzeugGruppe):
+    """FahrzeugGruppe with associated checklists"""
+    checklisten: Optional[list[Dict[str, Any]]] = []
 
 
 class FahrzeugBase(BaseModel):
@@ -51,6 +56,12 @@ class Fahrzeug(FahrzeugBase):
 
 class FahrzeugWithGroup(Fahrzeug):
     fahrzeuggruppe: FahrzeugGruppe
+
+
+class FahrzeugWithChecklists(Fahrzeug):
+    """Fahrzeug with available checklists from its fahrzeuggruppe"""
+    available_checklists: Optional[list[Dict[str, Any]]] = []
+    fahrzeuggruppe: Optional[FahrzeugGruppe] = None
 
 
 # List response with pagination
