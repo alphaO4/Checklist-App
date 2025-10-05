@@ -123,6 +123,9 @@ dependencies {
     // Date/Time
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.1")
     
+    // Security - EncryptedSharedPreferences
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
     
@@ -131,15 +134,40 @@ dependencies {
     implementation("androidx.hilt:hilt-work:1.1.0")
     ksp("androidx.hilt:hilt-compiler:1.1.0")
     
-    // Testing
+    // Testing - Unit Tests
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation("org.mockito:mockito-core:5.7.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("app.cash.turbine:turbine:1.0.0")
+    testImplementation("com.google.truth:truth:1.1.4")
+    
+    // Testing - Hilt
+    testImplementation("com.google.dagger:hilt-android-testing:2.48.1")
+    kspTest("com.google.dagger:hilt-android-compiler:2.48.1")
+    
+    // Testing - Room
+    testImplementation("androidx.room:room-testing:2.6.0")
+    
+    // Testing - WorkManager
+    testImplementation("androidx.work:work-testing:2.9.0")
+    
+    // Testing - Network
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    
+    // Android Instrumentation Tests
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2023.10.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.48.1")
+    kspAndroidTest("com.google.dagger:hilt-android-compiler:2.48.1")
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("androidx.test:rules:1.5.0")
+    
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-    
-    // TODO: Add shared business logic module later
-    // implementation(project(":shared"))
 }

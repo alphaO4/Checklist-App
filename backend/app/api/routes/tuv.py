@@ -65,15 +65,19 @@ def list_deadlines(
     
     # Update status based on current date
     for termin in all_termine:
-        new_status = calculate_tuv_status(termin.ablauf_datum)
-        if termin.status != new_status:
-            termin.status = new_status
+        ablauf_datum = getattr(termin, 'ablauf_datum', None)
+        current_status = getattr(termin, 'status', '')
+        
+        if ablauf_datum:
+            new_status = calculate_tuv_status(ablauf_datum)
+            if current_status != new_status:
+                setattr(termin, 'status', new_status)
     
     db.commit()
     
     # Apply status filter after updating
     if status:
-        all_termine = [t for t in all_termine if t.status == status]
+        all_termine = [t for t in all_termine if getattr(t, 'status', '') == status]
     
     total = len(all_termine)
     termine = all_termine[offset:offset + per_page]

@@ -1,12 +1,17 @@
 package com.feuerwehr.checklist.presentation.viewmodel
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.feuerwehr.checklist.domain.model.Vehicle
 import com.feuerwehr.checklist.domain.model.Checklist
 import com.feuerwehr.checklist.domain.model.ChecklistExecution
 import com.feuerwehr.checklist.domain.model.VehicleChecklistStatus
+import com.feuerwehr.checklist.domain.model.TuvAppointment
 import com.feuerwehr.checklist.domain.usecase.*
+import com.feuerwehr.checklist.presentation.error.BaseErrorHandlingViewModel
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -14,7 +19,7 @@ import javax.inject.Inject
 
 /**
  * ViewModel for Vehicle-related screens
- * Manages vehicle data and UI state
+ * Manages vehicle data and UI state with enhanced error handling
  */
 @HiltViewModel
 class VehicleViewModel @Inject constructor(
@@ -29,20 +34,25 @@ class VehicleViewModel @Inject constructor(
     private val startChecklistForVehicleUseCase: StartChecklistForVehicleUseCase,
     private val getVehiclesForChecklistUseCase: GetVehiclesForChecklistUseCase,
     private val hasActiveExecutionUseCase: HasActiveExecutionUseCase
-) : ViewModel() {
+) : BaseErrorHandlingViewModel() {
 
     private val _uiState = MutableStateFlow(VehicleUiState())
     val uiState: StateFlow<VehicleUiState> = _uiState.asStateFlow()
+    
+    private var lastFailedOperation: (() -> Unit)? = null
 
     init {
         loadVehicles()
     }
 
     fun loadVehicles() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            
-            try {
+        lastFailedOperation = ::loadVehicles
+        
+        safeExecute(
+            operation = {
+                _uiState.value = _uiState.value.copy(isLoading = true)
+                clearError()
+                
                 // Offline-first: load from local database
                 getVehiclesUseCase().collect { vehicles ->
                     _uiState.value = _uiState.value.copy(
@@ -50,78 +60,69 @@ class VehicleViewModel @Inject constructor(
                         isLoading = false
                     )
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message
-                )
             }
+        ) { error ->
+            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
     fun refreshVehicles() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isRefreshing = true, error = null)
-            
-            try {
-                // Fetch from remote and sync to local
-                fetchVehiclesFromRemoteUseCase().fold(
-                    onSuccess = { vehicles ->
-                        // Local data will be updated automatically via Flow
-                        _uiState.value = _uiState.value.copy(
-                            isRefreshing = false,
-                            lastSyncSuccess = true
-                        )
-                    },
-                    onFailure = { error ->
-                        _uiState.value = _uiState.value.copy(
-                            isRefreshing = false,
-                            error = error.message,
-                            lastSyncSuccess = false
-                        )
-                    }
-                )
-            } catch (e: Exception) {
+        lastFailedOperation = ::refreshVehicles
+        
+        safeExecuteResult(
+            operation = {
+                _uiState.value = _uiState.value.copy(isRefreshing = true)
+                clearError()
+                fetchVehiclesFromRemoteUseCase()
+            },
+            onSuccess = { vehicles ->
                 _uiState.value = _uiState.value.copy(
                     isRefreshing = false,
-                    error = e.message,
-                    lastSyncSuccess = false
+                    lastSyncSuccess = true
                 )
             }
-        }
-    }
-
-    fun syncVehicles() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSyncing = true, error = null)
-            
-            syncVehiclesUseCase().fold(
-                onSuccess = {
-                    _uiState.value = _uiState.value.copy(
-                        isSyncing = false,
-                        lastSyncSuccess = true
-                    )
-                },
-                onFailure = { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isSyncing = false,
-                        error = error.message,
-                        lastSyncSuccess = false
-                    )
-                }
+        ) { error ->
+            _uiState.value = _uiState.value.copy(
+                isRefreshing = false,
+                lastSyncSuccess = false
             )
         }
     }
 
+    fun syncVehicles() {
+        lastFailedOperation = ::syncVehicles
+        
+        safeExecuteResult(
+            operation = {
+                _uiState.value = _uiState.value.copy(isSyncing = true)
+                clearError()
+                syncVehiclesUseCase()
+            },
+            onSuccess = {
+                _uiState.value = _uiState.value.copy(
+                    isSyncing = false,
+                    lastSyncSuccess = true
+                )
+            }
+        ) { error ->
+            _uiState.value = _uiState.value.copy(
+                isSyncing = false,
+                lastSyncSuccess = false
+            )
+        }
+    }
+    
+    override fun retryLastOperation() {
+        lastFailedOperation?.invoke()
+    }
+
     fun selectVehicle(vehicleId: Int) {
-        viewModelScope.launch {
-            try {
+        safeExecute(
+            operation = {
                 val vehicle = getVehicleByIdUseCase(vehicleId)
                 _uiState.value = _uiState.value.copy(selectedVehicle = vehicle)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.message)
             }
-        }
+        )
     }
 
     fun searchVehicles(query: String) {
@@ -130,22 +131,20 @@ class VehicleViewModel @Inject constructor(
             return
         }
 
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, searchQuery = query)
-            
-            try {
+        safeExecute(
+            operation = {
+                _uiState.value = _uiState.value.copy(isLoading = true, searchQuery = query)
+                clearError()
+                
                 searchVehiclesUseCase(query).collect { searchResults ->
                     _uiState.value = _uiState.value.copy(
                         vehicles = searchResults,
                         isLoading = false
                     )
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message
-                )
             }
+        ) { error ->
+            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
@@ -289,6 +288,78 @@ class VehicleViewModel @Inject constructor(
     fun clearActiveExecution() {
         _uiState.value = _uiState.value.copy(activeExecution = null)
     }
+
+    // TÜV Management Methods
+    fun loadTuvAppointments(vehicleId: Int) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingTuvAppointments = true, tuvError = null)
+            
+            try {
+                // TODO: Implement getTuvAppointmentsUseCase when available
+                // For now, create mock appointments for demonstration
+                val mockAppointments = createMockTuvAppointments(vehicleId)
+                
+                _uiState.value = _uiState.value.copy(
+                    tuvAppointments = mockAppointments,
+                    isLoadingTuvAppointments = false
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingTuvAppointments = false,
+                    tuvError = e.message
+                )
+            }
+        }
+    }
+
+    fun scheduleTuvAppointment(vehicleId: Int, date: LocalDate, type: String) {
+        viewModelScope.launch {
+            try {
+                // TODO: Implement scheduleTuvAppointmentUseCase when available
+                // For now, add to existing list
+                val newAppointment = TuvAppointment(
+                    id = (1..1000).random(),
+                    fahrzeugId = vehicleId,
+                    ablaufDatum = date,
+                    status = com.feuerwehr.checklist.domain.model.TuvStatus.CURRENT,
+                    letztePruefung = null,
+                    createdAt = kotlinx.datetime.Clock.System.now()
+                )
+                
+                val updatedAppointments = _uiState.value.tuvAppointments + newAppointment
+                _uiState.value = _uiState.value.copy(tuvAppointments = updatedAppointments)
+                
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(tuvError = e.message)
+            }
+        }
+    }
+
+    private fun createMockTuvAppointments(vehicleId: Int): List<TuvAppointment> {
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+        return listOf(
+            TuvAppointment(
+                id = 1,
+                fahrzeugId = vehicleId,
+                ablaufDatum = today,
+                status = com.feuerwehr.checklist.domain.model.TuvStatus.CURRENT,
+                letztePruefung = today,
+                createdAt = kotlinx.datetime.Clock.System.now()
+            ),
+            TuvAppointment(
+                id = 2,
+                fahrzeugId = vehicleId,
+                ablaufDatum = today,
+                status = com.feuerwehr.checklist.domain.model.TuvStatus.WARNING,
+                letztePruefung = today,
+                createdAt = kotlinx.datetime.Clock.System.now()
+            )
+        )
+    }
+
+    fun clearTuvError() {
+        _uiState.value = _uiState.value.copy(tuvError = null)
+    }
 }
 
 data class VehicleUiState(
@@ -310,5 +381,9 @@ data class VehicleUiState(
     val isLoadingAvailableChecklists: Boolean = false,
     val isLoadingVehiclesForChecklist: Boolean = false,
     val isStartingChecklist: Boolean = false,
-    val checklistError: String? = null
+    val checklistError: String? = null,
+    // TÜV management state
+    val tuvAppointments: List<com.feuerwehr.checklist.domain.model.TuvAppointment> = emptyList(),
+    val isLoadingTuvAppointments: Boolean = false,
+    val tuvError: String? = null
 )

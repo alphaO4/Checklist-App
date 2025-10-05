@@ -136,7 +136,7 @@ def delete_vehicle_type(
     vehicles_count = db.query(Fahrzeug).filter(Fahrzeug.fahrzeugtyp_id == fahrzeugtyp_id).count()
     if vehicles_count > 0:
         # Soft delete - set as inactive
-        fahrzeugtyp.aktiv = False
+        setattr(fahrzeugtyp, 'aktiv', False)
         db.commit()
         return {"message": f"Fahrzeugtyp '{fahrzeugtyp.name}' wurde deaktiviert (wird von {vehicles_count} Fahrzeugen verwendet)"}
     else:

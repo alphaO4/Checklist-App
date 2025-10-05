@@ -9,10 +9,12 @@ import com.feuerwehr.checklist.data.local.dao.VehicleDao
 import com.feuerwehr.checklist.data.local.entity.UserEntity
 import com.feuerwehr.checklist.data.local.entity.VehicleGroupEntity
 import com.feuerwehr.checklist.data.local.entity.SyncStatus
+import com.feuerwehr.checklist.data.sync.SyncManager
 import com.feuerwehr.checklist.data.remote.api.ChecklistApiService
 import com.feuerwehr.checklist.data.remote.api.AuthApiService
 import com.feuerwehr.checklist.data.remote.api.VehicleApiService
 import com.feuerwehr.checklist.data.mapper.*
+import com.feuerwehr.checklist.data.error.RepositoryErrorHandler
 import com.feuerwehr.checklist.domain.model.*
 import com.feuerwehr.checklist.domain.repository.ChecklistRepository
 import kotlinx.coroutines.flow.Flow
@@ -37,7 +39,9 @@ class ChecklistRepositoryImpl @Inject constructor(
     private val userDao: UserDao,
     private val authApi: AuthApiService,
     private val vehicleDao: VehicleDao,
-    private val vehicleApi: VehicleApiService
+    private val vehicleApi: VehicleApiService,
+    private val syncManager: SyncManager,
+    private val errorHandler: RepositoryErrorHandler
 ) : ChecklistRepository {
 
     // Local data flows (offline-first)
@@ -295,41 +299,38 @@ class ChecklistRepositoryImpl @Inject constructor(
 
     override suspend fun createChecklist(checklist: Checklist): Result<Checklist> {
         return try {
-            // Try remote first
-            val createDto = com.feuerwehr.checklist.data.remote.dto.ChecklistCreateDto(
-                name = checklist.name,
-                fahrzeuggrupeId = checklist.fahrzeuggrupeId,
-                template = checklist.template != null,
-                items = emptyList() // TODO: Map items
+            // Offline-first: Store locally first with PENDING_UPLOAD status
+            val entity = checklist.toEntity().copy(
+                syncStatus = SyncStatus.PENDING_UPLOAD,
+                lastModified = Clock.System.now(),
+                version = 1
             )
+            val id = checklistDao.insertChecklist(entity)
+            val createdChecklist = checklist.copy(id = id.toInt())
             
-            val response = checklistApi.createChecklist(createDto)
+            // Request immediate sync
+            syncManager.triggerImmediateSync()
             
-            // Store in local database
-            checklistDao.insertChecklist(response.toEntity())
-            
-            Result.success(response.toDomain())
+            Result.success(createdChecklist)
         } catch (e: Exception) {
-            // Fallback to local storage with sync flag
-            try {
-                val entity = checklist.toEntity().copy(
-                    syncStatus = com.feuerwehr.checklist.data.local.entity.SyncStatus.PENDING_UPLOAD
-                )
-                checklistDao.insertChecklist(entity)
-                Result.success(checklist)
-            } catch (localE: Exception) {
-                Result.failure(localE)
-            }
+            Result.failure(e)
         }
     }
 
     override suspend fun updateChecklist(checklist: Checklist): Result<Checklist> {
         return try {
-            // Update local first
-            checklistDao.updateChecklist(checklist.toEntity())
+            // Update local with sync status
+            val entity = checklist.toEntity().copy(
+                syncStatus = SyncStatus.PENDING_UPLOAD,
+                lastModified = Clock.System.now(),
+                version = checklist.version + 1
+            )
+            checklistDao.updateChecklist(entity)
             
-            // TODO: Sync to remote in background
-            Result.success(checklist)
+            // Request immediate sync
+            syncManager.triggerImmediateSync()
+            
+            Result.success(checklist.copy(version = checklist.version + 1))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -340,7 +341,9 @@ class ChecklistRepositoryImpl @Inject constructor(
             val checklist = checklistDao.getChecklistById(id)
             if (checklist != null) {
                 checklistDao.deleteChecklist(checklist)
-                // TODO: Sync deletion to remote
+                
+                // Request immediate sync for deletion
+                syncManager.triggerImmediateSync()
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -398,9 +401,15 @@ class ChecklistRepositoryImpl @Inject constructor(
     // Sync operations
     override suspend fun syncChecklists(): Result<Unit> {
         return try {
-            // Fetch latest from remote and update local
+            // Upload pending local changes first
+            uploadPendingChecklists()
+            
+            // Then download remote changes
             val response = checklistApi.getChecklists()
-            val entities = response.items.map { it.toEntity() }
+            val entities = response.items.map { it.toEntity().copy(
+                syncStatus = SyncStatus.SYNCED,
+                lastModified = Clock.System.now()
+            ) }
             checklistDao.insertChecklists(entities)
             
             Result.success(Unit)
@@ -409,9 +418,83 @@ class ChecklistRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun uploadPendingChecklists(): Result<Unit> {
+        return try {
+            // Get checklists pending upload
+            val pendingChecklists = checklistDao.getChecklistsByStatus(SyncStatus.PENDING_UPLOAD)
+            
+            for (checklist in pendingChecklists) {
+                try {
+                    // Upload to backend
+                    val updatedChecklist = checklistApi.updateChecklist(checklist.id, checklist.toUpdateDto())
+                    
+                    // Update local with sync status
+                    checklistDao.updateChecklist(checklist.copy(
+                        syncStatus = SyncStatus.SYNCED,
+                        lastModified = Clock.System.now(),
+                        version = checklist.version + 1
+                    ))
+                } catch (e: Exception) {
+                    // Mark as conflict if upload fails
+                    checklistDao.updateChecklist(checklist.copy(
+                        syncStatus = SyncStatus.CONFLICT
+                    ))
+                }
+            }
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun syncChecklistExecutions(): Result<Unit> {
-        // TODO: Implement sync for executions
-        return Result.success(Unit)
+        return try {
+            // Upload pending executions first
+            uploadPendingExecutions()
+            
+            // Download remote executions
+            val executions = checklistApi.getChecklistExecutions()
+            val entities = executions.map { it.toEntity().copy(
+                syncStatus = SyncStatus.SYNCED,
+                lastModified = Clock.System.now()
+            ) }
+            checklistDao.insertChecklistExecutions(entities)
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun uploadPendingExecutions(): Result<Unit> {
+        return try {
+            // Get executions pending upload
+            val pendingExecutions = checklistDao.getExecutionsByStatus(SyncStatus.PENDING_UPLOAD)
+            
+            for (execution in pendingExecutions) {
+                try {
+                    // Upload to backend
+                    val updatedExecution = checklistApi.updateExecution(execution.id, execution.toUpdateDto())
+                    
+                    // Update local with sync status
+                    checklistDao.updateChecklistExecution(execution.copy(
+                        syncStatus = SyncStatus.SYNCED,
+                        lastModified = Clock.System.now(),
+                        version = execution.version + 1
+                    ))
+                } catch (e: Exception) {
+                    // Mark as conflict if upload fails
+                    checklistDao.updateChecklistExecution(execution.copy(
+                        syncStatus = SyncStatus.CONFLICT
+                    ))
+                }
+            }
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     // Enhanced checklist item operations

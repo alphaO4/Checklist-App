@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.Update
 import androidx.room.Delete
 import androidx.room.OnConflictStrategy
+import androidx.room.Transaction
 import com.feuerwehr.checklist.data.local.entity.VehicleEntity
 import com.feuerwehr.checklist.data.local.entity.VehicleGroupEntity
 import com.feuerwehr.checklist.data.local.entity.VehicleTypeEntity
@@ -138,4 +139,53 @@ interface VehicleDao {
         LIMIT 1
     """)
     suspend fun getActiveExecutionId(vehicleId: Int, checklistId: Int): Int?
+
+    // Sync-related queries
+    @Query("SELECT * FROM fahrzeuge WHERE syncStatus = :status")
+    suspend fun getVehiclesByStatus(status: com.feuerwehr.checklist.data.local.entity.SyncStatus): List<VehicleEntity>
+
+    @Query("SELECT COUNT(*) FROM fahrzeuge WHERE syncStatus = 'PENDING_UPLOAD'")
+    suspend fun getPendingUploadCount(): Int
+
+    @Query("SELECT COUNT(*) FROM fahrzeuge WHERE syncStatus = 'CONFLICT'")
+    suspend fun getConflictCount(): Int
+    
+    /**
+     * Insert vehicle data in transaction to avoid FK constraint issues
+     * Clears all existing data before inserting new data
+     */
+    @Transaction
+    suspend fun insertDataWithTransaction(
+        vehicleTypes: List<VehicleTypeEntity>,
+        vehicleGroups: List<VehicleGroupEntity>, 
+        vehicles: List<VehicleEntity>
+    ) {
+        // Clear all existing data to prevent FK conflicts on reload
+        clearAllVehicleData()
+        
+        // Insert new data in proper order
+        insertVehicleTypes(vehicleTypes)
+        insertVehicleGroups(vehicleGroups)
+        insertVehicles(vehicles)
+    }
+
+    /**
+     * Clear all vehicle-related data
+     */
+    @Query("DELETE FROM fahrzeuge")
+    suspend fun clearVehicles()
+    
+    @Query("DELETE FROM fahrzeuggruppen")  
+    suspend fun clearVehicleGroups()
+    
+    @Query("DELETE FROM fahrzeugtypen")
+    suspend fun clearVehicleTypes()
+    
+    @Transaction
+    suspend fun clearAllVehicleData() {
+        // Clear in reverse FK dependency order
+        clearVehicles()        // First: vehicles (depend on groups & types)
+        clearVehicleGroups()   // Second: vehicle groups  
+        clearVehicleTypes()    // Last: vehicle types (no dependencies)
+    }
 }

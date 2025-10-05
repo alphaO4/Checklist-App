@@ -1,8 +1,11 @@
 package com.feuerwehr.checklist.data.repository
 
 import com.feuerwehr.checklist.data.local.storage.TokenStorage
+import com.feuerwehr.checklist.data.local.storage.SecureStorage
 import com.feuerwehr.checklist.data.remote.api.AuthApiService
 import com.feuerwehr.checklist.data.remote.dto.LoginRequestDto
+import com.feuerwehr.checklist.data.error.safeAuthCall
+import com.feuerwehr.checklist.data.error.safeApiCall
 import com.feuerwehr.checklist.domain.model.User
 import com.feuerwehr.checklist.domain.repository.AuthRepository
 import kotlinx.datetime.Clock
@@ -56,11 +59,12 @@ private fun parseBackendDate(dateString: String): Instant {
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApiService,
-    private val tokenStorage: TokenStorage
+    private val tokenStorage: TokenStorage,
+    private val secureStorage: SecureStorage
 ) : AuthRepository {
 
-    override suspend fun login(username: String, password: String): Result<User> {
-        return try {
+    override suspend fun login(username: String, password: String, rememberMe: Boolean): Result<User> {
+        return safeAuthCall("AuthRepository") {
             val loginRequest = LoginRequestDto(username, password)
             val response = authApi.login(loginRequest)
             
@@ -72,18 +76,20 @@ class AuthRepositoryImpl @Inject constructor(
                 role = response.user.rolle
             )
             
+            // Save credentials securely if remember me is enabled
+            if (rememberMe) {
+                secureStorage.saveCredentials(username, password)
+            }
+            secureStorage.saveToken(response.accessToken)
+            
             // Convert DTO to domain model
-            val user = User(
+            User(
                 id = response.user.id,
                 username = response.user.username,
                 email = "", // TODO: Add email to backend user model
                 rolle = com.feuerwehr.checklist.domain.model.UserRole.fromString(response.user.rolle),
                 createdAt = parseBackendDate(response.user.createdAt)
             )
-            
-            Result.success(user)
-        } catch (e: Exception) {
-            Result.failure(e)
         }
     }
 
@@ -115,10 +121,12 @@ class AuthRepositoryImpl @Inject constructor(
                 authApi.logout()
             }
             tokenStorage.clearAll()
+            secureStorage.clearCredentials()
             Result.success(Unit)
         } catch (e: Exception) {
             // Even if API call fails, clear local storage
             tokenStorage.clearAll()
+            secureStorage.clearCredentials()
             Result.success(Unit)
         }
     }
@@ -134,6 +142,27 @@ class AuthRepositoryImpl @Inject constructor(
 
     override fun getCurrentUsername(): String? {
         return tokenStorage.getUsername()
+    }
+
+    override suspend fun autoLogin(): User? {
+        return secureStorage.autoLogin { username, password ->
+            login(username, password).getOrNull()
+        }
+    }
+
+    override suspend fun hasValidToken(): Boolean {
+        return secureStorage.hasValidToken()
+    }
+
+    override suspend fun isTokenExpired(): Boolean {
+        return secureStorage.isTokenExpired()
+    }
+
+    override suspend fun refreshTokenIfNeeded(): Boolean {
+        if (isTokenExpired()) {
+            return autoLogin() != null
+        }
+        return true
     }
 }
 

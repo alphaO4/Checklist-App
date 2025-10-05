@@ -60,5 +60,7 @@ interface ChecklistRepository {
     
     // Sync operations
     suspend fun syncChecklists(): Result<Unit>
+    suspend fun uploadPendingChecklists(): Result<Unit>
     suspend fun syncChecklistExecutions(): Result<Unit>
+    suspend fun uploadPendingExecutions(): Result<Unit>
 }

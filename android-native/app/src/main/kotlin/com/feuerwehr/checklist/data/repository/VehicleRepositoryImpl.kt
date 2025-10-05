@@ -1,8 +1,12 @@
 package com.feuerwehr.checklist.data.repository
 
 import com.feuerwehr.checklist.data.local.dao.VehicleDao
+import com.feuerwehr.checklist.data.local.entity.SyncStatus
+import com.feuerwehr.checklist.data.sync.SyncManager
 import com.feuerwehr.checklist.data.remote.api.VehicleApiService
 import com.feuerwehr.checklist.data.mapper.*
+import com.feuerwehr.checklist.data.error.RepositoryErrorHandler
+import kotlinx.datetime.Clock
 import com.feuerwehr.checklist.domain.model.Vehicle
 import com.feuerwehr.checklist.domain.model.VehicleGroup
 import com.feuerwehr.checklist.domain.model.VehicleType
@@ -26,7 +30,9 @@ import javax.inject.Singleton
 @Singleton
 class VehicleRepositoryImpl @Inject constructor(
     private val vehicleDao: VehicleDao,
-    private val vehicleApi: VehicleApiService
+    private val vehicleApi: VehicleApiService,
+    private val syncManager: SyncManager,
+    private val errorHandler: RepositoryErrorHandler
 ) : VehicleRepository {
 
     override fun getVehicles(): Flow<List<Vehicle>> {
@@ -65,22 +71,22 @@ class VehicleRepositoryImpl @Inject constructor(
     }
 
     override suspend fun fetchVehiclesFromRemote(): Result<List<Vehicle>> {
-        return try {
-            // Fetch vehicle types first
+        return errorHandler.safeApiCall("fetchVehicles") {
+            // Fetch all data first to avoid network issues during transaction
             val vehicleTypes = vehicleApi.getVehicleTypes()
-            vehicleDao.insertVehicleTypes(vehicleTypes.map { it.toEntity() })
-
-            // Fetch vehicle groups
             val vehicleGroups = vehicleApi.getVehicleGroups()
-            vehicleDao.insertVehicleGroups(vehicleGroups.map { it.toEntity() })
-
-            // Fetch vehicles
             val vehiclesResponse = vehicleApi.getVehicles(page = 1, perPage = 100)
-            val vehicleEntities = vehiclesResponse.items.map { it.toEntity() }
-            vehicleDao.insertVehicles(vehicleEntities)
+            
+            // Insert everything in a single transaction to avoid FK constraint issues
+            vehicleDao.insertDataWithTransaction(
+                vehicleTypes = vehicleTypes.map { it.toEntity() },
+                vehicleGroups = vehicleGroups.map { it.toEntity() },
+                vehicles = vehiclesResponse.items.map { it.toEntity() }
+            )
 
-            // Convert to domain models
-            val vehicles = vehicleEntities.map { vehicleEntity ->
+            // Convert to domain models  
+            val vehicles = vehiclesResponse.items.map { vehicleDto ->
+                val vehicleEntity = vehicleDto.toEntity()
                 val vehicleType = vehicleTypes.find { it.id == vehicleEntity.fahrzeugtypId }?.let { dto ->
                     VehicleType(
                         id = dto.id,
@@ -100,15 +106,63 @@ class VehicleRepositoryImpl @Inject constructor(
                 vehicleEntity.toDomain(vehicleType, vehicleGroup)
             }
 
-            Result.success(vehicles)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+            vehicles
     }
 
     override suspend fun syncVehicles(): Result<Unit> {
+        return errorHandler.safeSyncCall("syncVehicles") {
+            // Upload pending local changes first
+            uploadPendingVehicles()
+            
+            // Then download remote changes
+            val vehicleTypes = vehicleApi.getVehicleTypes()
+            val vehicleGroups = vehicleApi.getVehicleGroups()
+            val vehiclesResponse = vehicleApi.getVehicles(page = 1, perPage = 100)
+            
+            // Insert everything in a single transaction
+            vehicleDao.insertDataWithTransaction(
+                vehicleTypes = vehicleTypes.map { it.toEntity().copy(
+                    syncStatus = SyncStatus.SYNCED,
+                    lastModified = Clock.System.now()
+                ) },
+                vehicleGroups = vehicleGroups.map { it.toEntity().copy(
+                    syncStatus = SyncStatus.SYNCED,
+                    lastModified = Clock.System.now()
+                ) },
+                vehicles = vehiclesResponse.items.map { it.toEntity().copy(
+                    syncStatus = SyncStatus.SYNCED,
+                    lastModified = Clock.System.now()
+                ) }
+            )
+            
+            Unit
+        }
+    }
+    
+    override suspend fun uploadPendingVehicles(): Result<Unit> {
         return try {
-            fetchVehiclesFromRemote()
+            // Get vehicles pending upload
+            val pendingVehicles = vehicleDao.getVehiclesByStatus(SyncStatus.PENDING_UPLOAD)
+            
+            for (vehicle in pendingVehicles) {
+                try {
+                    // Upload to backend
+                    val updatedVehicle = vehicleApi.updateVehicle(vehicle.id, vehicle.toUpdateDto())
+                    
+                    // Update local with sync status
+                    vehicleDao.updateVehicle(vehicle.copy(
+                        syncStatus = SyncStatus.SYNCED,
+                        lastModified = Clock.System.now(),
+                        version = vehicle.version + 1
+                    ))
+                } catch (e: Exception) {
+                    // Mark as conflict if upload fails
+                    vehicleDao.updateVehicle(vehicle.copy(
+                        syncStatus = SyncStatus.CONFLICT
+                    ))
+                }
+            }
+            
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

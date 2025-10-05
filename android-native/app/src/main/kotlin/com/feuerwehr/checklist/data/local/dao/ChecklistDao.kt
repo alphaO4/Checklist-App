@@ -225,4 +225,27 @@ interface ChecklistDao {
     
     @Delete
     suspend fun deleteItemResult(result: ItemResultEntity)
+
+    // Sync-related queries
+    @Query("SELECT * FROM checklisten WHERE syncStatus = :status")
+    suspend fun getChecklistsByStatus(status: com.feuerwehr.checklist.data.local.entity.SyncStatus): List<ChecklistEntity>
+
+    @Query("SELECT * FROM checklist_ausfuehrungen WHERE syncStatus = :status")
+    suspend fun getExecutionsByStatus(status: com.feuerwehr.checklist.data.local.entity.SyncStatus): List<ChecklistExecutionEntity>
+
+    @Query("SELECT COUNT(*) FROM checklisten WHERE syncStatus = 'PENDING_UPLOAD'")
+    suspend fun getPendingChecklistUploadCount(): Int
+
+    @Query("SELECT COUNT(*) FROM checklist_ausfuehrungen WHERE syncStatus = 'PENDING_UPLOAD'")
+    suspend fun getPendingExecutionUploadCount(): Int
+
+    @Query("SELECT COUNT(*) FROM checklisten WHERE syncStatus = 'CONFLICT'")
+    suspend fun getChecklistConflictCount(): Int
+
+    @Query("SELECT COUNT(*) FROM checklist_ausfuehrungen WHERE syncStatus = 'CONFLICT'")
+    suspend fun getExecutionConflictCount(): Int
+
+    // Helper method for updating execution status
+    @Update
+    suspend fun updateExecution(execution: ChecklistExecutionEntity)
 }

@@ -1,7 +1,7 @@
 package com.feuerwehr.checklist.presentation.viewmodel
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.feuerwehr.checklist.presentation.error.BaseErrorHandlingViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,46 +16,55 @@ import javax.inject.Inject
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val getChecklistsUseCase: com.feuerwehr.checklist.domain.usecase.GetChecklistsUseCase,
-    // TODO: Inject other repositories when created
-    // private val vehicleRepository: VehicleRepository,
-    // private val tuvRepository: TuvRepository
-) : ViewModel() {
+    private val getVehiclesUseCase: com.feuerwehr.checklist.domain.usecase.GetVehiclesUseCase,
+    private val authRepository: com.feuerwehr.checklist.domain.repository.AuthRepository
+) : BaseErrorHandlingViewModel() {
     
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
     
     fun loadDashboardData() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            
-            try {
-                // Load checklist count from repository
+        _uiState.value = _uiState.value.copy(isLoading = true)
+        
+        safeExecute("loadDashboardData") {
+            // Load vehicle count (just take first emission for dashboard summary)
+            getVehiclesUseCase().collect { vehicles ->
+                val vehicleCount = vehicles.size
+                val tuvExpiringCount = vehicles.count { vehicle ->
+                    // Simple heuristic: assume some vehicles need TÜV soon
+                    // In real implementation, this would check actual TÜV dates from TUV repository
+                    vehicle.id % 3 == 0 // Every 3rd vehicle "needs" TÜV (demo data)
+                }
+                
+                // Load checklist count
                 getChecklistsUseCase().collect { checklists ->
+                    val checklistCount = checklists.size
+                    
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        vehicleCount = 8, // TODO: Load from vehicle repository
-                        checklistCount = checklists.size,
-                        tuvExpiringCount = 2, // TODO: Load from TÜV repository
-                        groupCount = 4, // TODO: Load from group repository
+                        vehicleCount = vehicleCount,
+                        checklistCount = checklistCount,
+                        tuvExpiringCount = tuvExpiringCount,
                         recentActivities = listOf(
-                            "MTF B-2031 Checkliste durchgeführt",
-                            "TÜV für LF B-2184 erneuert", 
-                            "Neue Checkliste für RTB erstellt",
-                            "Fahrzeug HLF B-2229 hinzugefügt"
+                            "Dashboard geladen mit $vehicleCount Fahrzeugen",
+                            "Checklisten verfügbar: $checklistCount",
+                            "TÜV-Termine: $tuvExpiringCount bald fällig",
+                            "System bereit für Fahrzeugprüfung"
                         )
                     )
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = "Fehler beim Laden der Dashboard-Daten: ${e.message}"
-                )
             }
         }
     }
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            authRepository.logout()
+        }
     }
 }
 

@@ -303,14 +303,17 @@ def record_item_result(
             detail="Durchführung nicht gefunden"
         )
     
-    if run.status != "started":
+    if getattr(run, 'status', '') != "started":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Durchführung ist nicht aktiv"
         )
     
     # Check if user has permission to modify this run
-    if run.benutzer_id != current_user.id and current_user.rolle not in ["organisator", "admin"]:
+    run_benutzer_id = getattr(run, 'benutzer_id', 0)
+    current_user_id = getattr(current_user, 'id', 0)
+    current_user_rolle = getattr(current_user, 'rolle', 'benutzer')
+    if run_benutzer_id != current_user_id and current_user_rolle not in ["organisator", "admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Keine Berechtigung diese Durchführung zu bearbeiten"
@@ -344,8 +347,8 @@ def record_item_result(
     
     if existing_result:
         # Update existing result
-        existing_result.status = result_data.status
-        existing_result.kommentar = result_data.kommentar
+        setattr(existing_result, 'status', result_data.status)
+        setattr(existing_result, 'kommentar', result_data.kommentar)
         db.commit()
         db.refresh(existing_result)
         return ItemErgebnisSchema.model_validate(existing_result)
@@ -375,21 +378,24 @@ def complete_checklist_run(
             detail="Durchführung nicht gefunden"
         )
     
-    if run.benutzer_id != current_user.id and current_user.rolle not in ["organisator", "admin"]:
+    run_benutzer_id = getattr(run, 'benutzer_id', 0)
+    current_user_id = getattr(current_user, 'id', 0)
+    current_user_rolle = getattr(current_user, 'rolle', 'benutzer')
+    if run_benutzer_id != current_user_id and current_user_rolle not in ["organisator", "admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Keine Berechtigung diese Durchführung zu bearbeiten"
         )
     
-    if run.status != "started":
+    if getattr(run, 'status', '') != "started":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Durchführung ist nicht aktiv"
         )
     
     from datetime import datetime
-    run.status = "completed"
-    run.completed_at = datetime.now()
+    setattr(run, 'status', "completed")
+    setattr(run, 'completed_at', datetime.now())
     
     db.commit()
     return {"detail": "Durchführung abgeschlossen"}

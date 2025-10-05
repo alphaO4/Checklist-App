@@ -14,6 +14,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.feuerwehr.checklist.domain.model.Checklist
 import com.feuerwehr.checklist.presentation.viewmodel.ChecklistViewModel
+import com.feuerwehr.checklist.presentation.component.SearchBar
+import com.feuerwehr.checklist.presentation.component.ErrorMessage
+import com.feuerwehr.checklist.presentation.component.EmptyState
 
 /**
  * Main checklist list screen with search and template support
@@ -313,30 +316,5 @@ private fun ErrorMessage(
     }
 }
 
-@Composable
-private fun EmptyState(
-    message: String,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                Icons.Default.List,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
+
+// Removed private EmptyState - using shared component

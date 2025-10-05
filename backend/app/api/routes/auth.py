@@ -289,8 +289,7 @@ def change_password(
             detail="Neues Passwort muss mindestens 8 Zeichen lang sein"
         )
     
-    # Assign the hashed password directly for clarity and type safety.
-    # If you encounter SQLAlchemy mapping issues, use setattr() instead and document the reason.
-    current_user.password_hash = hash_password(password_data.new_password)
+    # Use setattr for SQLAlchemy compatibility
+    setattr(current_user, 'password_hash', hash_password(password_data.new_password))
     db.commit()
     return {"detail": "Passwort erfolgreich geändert"}

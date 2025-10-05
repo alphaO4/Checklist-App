@@ -17,6 +17,8 @@ import com.feuerwehr.checklist.domain.model.ChecklistItem
 import com.feuerwehr.checklist.domain.model.ChecklistItemType
 import com.feuerwehr.checklist.domain.model.ItemStatus
 import com.feuerwehr.checklist.presentation.viewmodel.ChecklistExecutionViewModel
+import com.feuerwehr.checklist.presentation.component.ErrorMessage
+import com.feuerwehr.checklist.presentation.component.EmptyState
 
 /**
  * Screen for executing a checklist step by step
@@ -369,73 +371,5 @@ private fun ChecklistItemExecution(
     }
 }
 
-@Composable
-private fun ErrorMessage(
-    error: String,
-    onRetry: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Fehler",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-            Text(
-                text = error,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TextButton(onClick = onRetry) {
-                    Text("Wiederholen")
-                }
-                TextButton(onClick = onDismiss) {
-                    Text("Schließen")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyState(
-    message: String,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                Icons.Default.List,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
+// Removed duplicate ErrorMessage and EmptyState implementations
+// Using shared components from com.feuerwehr.checklist.presentation.component package

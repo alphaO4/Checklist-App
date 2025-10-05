@@ -14,6 +14,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.feuerwehr.checklist.domain.model.Vehicle
 import com.feuerwehr.checklist.presentation.viewmodel.VehicleViewModel
+import com.feuerwehr.checklist.presentation.component.ErrorMessage
+import com.feuerwehr.checklist.presentation.component.EmptyState
 
 /**
  * Vehicle list screen showing all vehicles
@@ -24,6 +26,7 @@ import com.feuerwehr.checklist.presentation.viewmodel.VehicleViewModel
 fun VehicleListScreen(
     onNavigateBack: () -> Unit,
     onNavigateToVehicleChecklists: (Int) -> Unit, // vehicleId
+    onNavigateToVehicleDetails: ((Int) -> Unit)? = null, // vehicleId  
     viewModel: VehicleViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -86,8 +89,9 @@ fun VehicleListScreen(
                         VehicleList(
                             vehicles = uiState.vehicles,
                             onVehicleClick = { vehicleId ->
-                                onNavigateToVehicleChecklists(vehicleId)
+                                onNavigateToVehicleDetails?.invoke(vehicleId) ?: onNavigateToVehicleChecklists(vehicleId)
                             },
+                            onChecklistClick = onNavigateToVehicleChecklists,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -101,6 +105,7 @@ fun VehicleListScreen(
 private fun VehicleList(
     vehicles: List<Vehicle>,
     onVehicleClick: (Int) -> Unit,
+    onChecklistClick: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -111,7 +116,8 @@ private fun VehicleList(
         items(vehicles) { vehicle ->
             VehicleCard(
                 vehicle = vehicle,
-                onClick = { onVehicleClick(vehicle.id) }
+                onClick = { onVehicleClick(vehicle.id) },
+                onChecklistClick = { onChecklistClick(vehicle.id) }
             )
         }
     }
@@ -121,7 +127,8 @@ private fun VehicleList(
 @Composable
 private fun VehicleCard(
     vehicle: Vehicle,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onChecklistClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
@@ -154,31 +161,38 @@ private fun VehicleCard(
                         )
                     }
                     
-                    // Show checklist availability hint
+                    // Action buttons
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 8.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Assignment,
-                            contentDescription = "Checklisten",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "Checklisten verwalten",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        OutlinedButton(
+                            onClick = { onClick() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Details", style = MaterialTheme.typography.labelSmall)
+                        }
+                        
+                        Button(
+                            onClick = { onChecklistClick() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                Icons.Default.Assignment,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Checkliste", style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
-                
-                Icon(
-                    Icons.Default.ChevronRight,
-                    contentDescription = "Checklisten anzeigen",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
@@ -227,30 +241,4 @@ private fun ErrorMessage(
     }
 }
 
-@Composable
-private fun EmptyState(
-    message: String,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                Icons.Default.DirectionsCar,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
+// Removed private EmptyState - using shared component

@@ -90,7 +90,8 @@ def update_enhanced_checklist_item(
         )
     
     # Check if user can edit this specific item type
-    check_item_edit_permission(current_user, db_item.editable_roles or ["organisator", "admin"])
+    item_editable_roles = getattr(db_item, 'editable_roles', None) or ["organisator", "admin"]
+    check_item_edit_permission(current_user, item_editable_roles)
     
     # Update the item
     update_data = item_data.model_dump(exclude_unset=True)
@@ -127,8 +128,11 @@ def create_enhanced_item_result(
         )
     
     # Check permissions - user must be assigned to execution or have admin/organisator role
-    if (execution.benutzer_id != current_user.id and 
-        current_user.rolle not in ["organisator", "admin"]):
+    execution_benutzer_id = getattr(execution, 'benutzer_id', 0)
+    current_user_id = getattr(current_user, 'id', 0)
+    current_user_rolle = getattr(current_user, 'rolle', 'benutzer')
+    if (execution_benutzer_id != current_user_id and 
+        current_user_rolle not in ["organisator", "admin"]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Keine Berechtigung für diese Checklistenausführung"

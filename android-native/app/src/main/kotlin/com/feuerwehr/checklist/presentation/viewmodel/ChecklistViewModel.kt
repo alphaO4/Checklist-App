@@ -120,6 +120,25 @@ class ChecklistViewModel @Inject constructor(
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
+    
+    fun loadChecklistById(checklistId: Int) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            try {
+                val checklist = getChecklistByIdUseCase(checklistId)
+                _uiState.value = _uiState.value.copy(
+                    selectedChecklist = checklist,
+                    isLoading = false
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message
+                )
+            }
+        }
+    }
 
     fun clearSelection() {
         _uiState.value = _uiState.value.copy(selectedChecklist = null)

@@ -9,6 +9,9 @@ import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.FileCopy
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,11 +25,14 @@ import com.feuerwehr.checklist.presentation.viewmodel.DashboardViewModel
  * Dashboard screen showing overview of vehicles, TÜV status, recent checklists
  * Native Android implementation replacing WebView-based frontend
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onNavigateToVehicles: () -> Unit,
     onNavigateToChecklists: () -> Unit,
     onNavigateToTemplates: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {},
+    onLogout: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -35,18 +41,53 @@ fun DashboardScreen(
         viewModel.loadDashboardData()
     }
     
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Header
-        Text(
-            text = "Dashboard",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Dashboard") },
+                actions = {
+                    var showMenu by remember { mutableStateOf(false) }
+                    
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Menü")
+                    }
+                    
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Profil") },
+                            onClick = {
+                                showMenu = false
+                                onNavigateToProfile()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Person, contentDescription = null)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Abmelden") },
+                            onClick = {
+                                showMenu = false
+                                viewModel.logout()
+                                onLogout()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Filled.ExitToApp, contentDescription = null)
+                            }
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
         
         Spacer(modifier = Modifier.height(24.dp))
         
@@ -150,6 +191,7 @@ fun DashboardScreen(
                 }
             }
         }
+    }
     }
 }
 

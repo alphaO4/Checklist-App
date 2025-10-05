@@ -5,6 +5,7 @@ import androidx.room.PrimaryKey
 import androidx.room.ForeignKey
 import androidx.room.Index
 import kotlinx.datetime.Instant
+import com.feuerwehr.checklist.data.sync.SyncableEntity
 
 /**
  * Room entity for VehicleType (FahrzeugTyp)
@@ -25,7 +26,31 @@ data class VehicleTypeEntity(
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     val lastModified: Instant = createdAt,
     val version: Int = 1
-)
+) : SyncableEntity {
+    override fun getEntityId(): String = id.toString()
+    override fun getLastModifiedTime(): Instant = lastModified
+    override fun getVersion(): Int = version
+    override fun getSyncStatus(): SyncStatus = syncStatus
+    
+    override fun withUpdatedSync(
+        syncStatus: SyncStatus,
+        lastModified: Instant,
+        version: Int
+    ): SyncableEntity {
+        return copy(
+            syncStatus = syncStatus,
+            lastModified = lastModified,
+            version = version
+        )
+    }
+    
+    override fun isConflictWith(other: SyncableEntity): Boolean {
+        return other is VehicleTypeEntity &&
+               other.getEntityId() == getEntityId() &&
+               other.getLastModifiedTime() != getLastModifiedTime() &&
+               other.getVersion() != getVersion()
+    }
+}
 
 /**
  * Room entity for VehicleGroup (FahrzeugGruppe)
@@ -41,7 +66,31 @@ data class VehicleGroupEntity(
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     val lastModified: Instant = createdAt,
     val version: Int = 1
-)
+) : SyncableEntity {
+    override fun getEntityId(): String = id.toString()
+    override fun getLastModifiedTime(): Instant = lastModified
+    override fun getVersion(): Int = version
+    override fun getSyncStatus(): SyncStatus = syncStatus
+    
+    override fun withUpdatedSync(
+        syncStatus: SyncStatus,
+        lastModified: Instant,
+        version: Int
+    ): SyncableEntity {
+        return copy(
+            syncStatus = syncStatus,
+            lastModified = lastModified,
+            version = version
+        )
+    }
+    
+    override fun isConflictWith(other: SyncableEntity): Boolean {
+        return other is VehicleGroupEntity &&
+               other.getEntityId() == getEntityId() &&
+               other.getLastModifiedTime() != getLastModifiedTime() &&
+               other.getVersion() != getVersion()
+    }
+}
 
 /**
  * Room entity for Vehicle (Fahrzeug)
@@ -80,4 +129,28 @@ data class VehicleEntity(
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     val lastModified: Instant = createdAt,
     val version: Int = 1
-)
+) : SyncableEntity {
+    override fun getEntityId(): String = id.toString()
+    override fun getLastModifiedTime(): Instant = lastModified
+    override fun getVersion(): Int = version
+    override fun getSyncStatus(): SyncStatus = syncStatus
+    
+    override fun withUpdatedSync(
+        syncStatus: SyncStatus,
+        lastModified: Instant,
+        version: Int
+    ): SyncableEntity {
+        return copy(
+            syncStatus = syncStatus,
+            lastModified = lastModified,
+            version = version
+        )
+    }
+    
+    override fun isConflictWith(other: SyncableEntity): Boolean {
+        return other is VehicleEntity &&
+               other.getEntityId() == getEntityId() &&
+               other.getLastModifiedTime() != getLastModifiedTime() &&
+               other.getVersion() != getVersion()
+    }
+}

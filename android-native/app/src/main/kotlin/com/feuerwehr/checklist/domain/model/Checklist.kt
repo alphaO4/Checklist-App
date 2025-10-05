@@ -59,6 +59,7 @@ data class Checklist(
     val erstellerId: Int?,                // Creator user ID (nullable)
     val template: Boolean = false,        // Is this a template?
     val createdAt: Instant,
+    val version: Int = 1,                // Version for sync conflict resolution
     val items: List<ChecklistItem> = emptyList()
 )
 

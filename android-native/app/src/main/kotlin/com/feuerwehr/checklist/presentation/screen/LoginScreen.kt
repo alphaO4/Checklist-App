@@ -12,6 +12,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.feuerwehr.checklist.presentation.viewmodel.LoginViewModel
+import com.feuerwehr.checklist.presentation.component.UsernameField
+import com.feuerwehr.checklist.presentation.component.PasswordField
 
 /**
  * Login screen with native Android UI
@@ -26,6 +28,11 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     
     val uiState by viewModel.uiState.collectAsState()
+    
+    // Try auto-login when screen loads
+    LaunchedEffect(Unit) {
+        viewModel.tryAutoLogin()
+    }
     
     // Handle successful login
     LaunchedEffect(uiState.isLoginSuccess) {
@@ -59,37 +66,56 @@ fun LoginScreen(
         
         Spacer(modifier = Modifier.height(48.dp))
         
-        // Username field
-        OutlinedTextField(
+        // Username field with validation
+        UsernameField(
             value = username,
             onValueChange = { username = it },
-            label = { Text("Benutzername") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
             enabled = !uiState.isLoading
         )
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Password field
-        OutlinedTextField(
+        // Password field with validation
+        PasswordField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Passwort") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             enabled = !uiState.isLoading
         )
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
-        // Login button
-        Button(
-            onClick = { viewModel.login(username, password) },
+        // Remember Me checkbox
+        var rememberMe by remember { mutableStateOf(true) }
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isLoading && username.isNotBlank() && password.isNotBlank()
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = rememberMe,
+                onCheckedChange = { rememberMe = it },
+                enabled = !uiState.isLoading
+            )
+            Text(
+                text = "Anmeldedaten merken",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Login button with proper validation
+        val isFormValid = username.isNotBlank() && 
+                         password.isNotBlank() && 
+                         username.length >= 3 && 
+                         password.length >= 6
+        
+        Button(
+            onClick = { viewModel.login(username, password, rememberMe) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !uiState.isLoading && isFormValid
         ) {
             if (uiState.isLoading) {
                 CircularProgressIndicator(

@@ -6,6 +6,7 @@ import com.feuerwehr.checklist.data.local.ChecklistDatabase
 import com.feuerwehr.checklist.data.local.dao.ChecklistDao
 import com.feuerwehr.checklist.data.local.dao.UserDao
 import com.feuerwehr.checklist.data.local.dao.VehicleDao
+import com.feuerwehr.checklist.data.local.storage.SecureStorage
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -40,4 +41,10 @@ object DatabaseModule {
     
     @Provides
     fun provideChecklistDao(database: ChecklistDatabase): ChecklistDao = database.checklistDao()
+
+    @Provides
+    @Singleton
+    fun provideSecureStorage(@ApplicationContext context: Context): SecureStorage {
+        return SecureStorage(context)
+    }
 }

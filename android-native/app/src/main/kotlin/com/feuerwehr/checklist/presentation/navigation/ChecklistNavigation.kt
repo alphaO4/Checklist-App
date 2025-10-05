@@ -13,7 +13,11 @@ import com.feuerwehr.checklist.presentation.screen.VehicleSelectionScreen
 import com.feuerwehr.checklist.presentation.screen.ChecklistScreen
 import com.feuerwehr.checklist.presentation.screen.ChecklistListScreen
 import com.feuerwehr.checklist.presentation.screen.ChecklistExecutionScreen
+import com.feuerwehr.checklist.presentation.screen.ChecklistDetailScreen
+import com.feuerwehr.checklist.presentation.screen.VehicleDetailScreen
 import com.feuerwehr.checklist.presentation.screen.TemplatesScreen
+import com.feuerwehr.checklist.presentation.screen.ProfileScreen
+import com.feuerwehr.checklist.presentation.screen.TuvManagementScreen
 
 /**
  * Main navigation for the Android-first Checklist App
@@ -47,6 +51,14 @@ fun ChecklistNavigation(
                 },
                 onNavigateToTemplates = {
                     navController.navigate(NavigationRoute.Templates.route)
+                },
+                onNavigateToProfile = {
+                    navController.navigate(NavigationRoute.Profile.route)
+                },
+                onLogout = {
+                    navController.navigate(NavigationRoute.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
@@ -58,6 +70,9 @@ fun ChecklistNavigation(
                 },
                 onNavigateToVehicleChecklists = { vehicleId ->
                     navController.navigate("vehicle_checklist_management/$vehicleId")
+                },
+                onNavigateToVehicleDetails = { vehicleId ->
+                    navController.navigate("vehicle_details/$vehicleId")
                 }
             )
         }
@@ -110,8 +125,44 @@ fun ChecklistNavigation(
 
         composable("checklist_details/{checklistId}") { backStackEntry ->
             val checklistId = backStackEntry.arguments?.getString("checklistId")?.toIntOrNull() ?: 0
-            // TODO: Implement ChecklistDetailsScreen
-            ChecklistScreen(
+            ChecklistDetailScreen(
+                checklistId = checklistId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onStartExecution = { clId, vehId ->
+                    if (vehId != null) {
+                        navController.navigate("checklist_execution/$clId/$vehId")
+                    }
+                },
+                onSelectVehicleForExecution = { clId ->
+                    navController.navigate("vehicle_selection_for_checklist/$clId")
+                }
+            )
+        }
+        
+        composable("vehicle_details/{vehicleId}") { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getString("vehicleId")?.toIntOrNull() ?: 0
+            VehicleDetailScreen(
+                vehicleId = vehicleId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToChecklists = { vehId ->
+                    navController.navigate("vehicle_checklists/$vehId")
+                },
+                onNavigateToTuvManagement = { vehId ->
+                    navController.navigate("tuv_management/$vehId")
+                }
+            )
+        }
+        
+        composable("vehicle_selection_for_checklist/{checklistId}") { backStackEntry ->
+            val checklistId = backStackEntry.arguments?.getString("checklistId")?.toIntOrNull() ?: 0
+            VehicleSelectionScreen(
+                onVehicleSelected = { vehicleId ->
+                    navController.navigate("checklist_execution/$checklistId/$vehicleId")
+                },
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -129,6 +180,29 @@ fun ChecklistNavigation(
                     navController.popBackStack()
                 },
                 onExecutionComplete = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(NavigationRoute.Profile.route) {
+            ProfileScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onLogout = {
+                    navController.navigate(NavigationRoute.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable("tuv_management/{vehicleId}") { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getString("vehicleId")?.toIntOrNull() ?: 0
+            TuvManagementScreen(
+                vehicleId = vehicleId,
+                onNavigateBack = {
                     navController.popBackStack()
                 }
             )

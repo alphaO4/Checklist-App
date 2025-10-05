@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import com.feuerwehr.checklist.data.sync.SyncableEntity
 
 /**
  * Room entity for TÜV Appointment (TuvTermin)
@@ -39,7 +40,31 @@ data class TuvAppointmentEntity(
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     val lastModified: Instant = createdAt,
     val version: Int = 1
-)
+) : SyncableEntity {
+    override fun getEntityId(): String = id.toString()
+    override fun getLastModifiedTime(): Instant = lastModified
+    override fun getVersion(): Int = version
+    override fun getSyncStatus(): SyncStatus = syncStatus
+    
+    override fun withUpdatedSync(
+        syncStatus: SyncStatus,
+        lastModified: Instant,
+        version: Int
+    ): SyncableEntity {
+        return copy(
+            syncStatus = syncStatus,
+            lastModified = lastModified,
+            version = version
+        )
+    }
+    
+    override fun isConflictWith(other: SyncableEntity): Boolean {
+        return other is TuvAppointmentEntity &&
+               other.getEntityId() == getEntityId() &&
+               other.getLastModifiedTime() != getLastModifiedTime() &&
+               other.getVersion() != getVersion()
+    }
+}
 
 /**
  * Room entity for Checklist (Checkliste)
@@ -79,7 +104,31 @@ data class ChecklistEntity(
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     val lastModified: Instant = createdAt,
     val version: Int = 1
-)
+) : SyncableEntity {
+    override fun getEntityId(): String = id.toString()
+    override fun getLastModifiedTime(): Instant = lastModified
+    override fun getVersion(): Int = version
+    override fun getSyncStatus(): SyncStatus = syncStatus
+    
+    override fun withUpdatedSync(
+        syncStatus: SyncStatus,
+        lastModified: Instant,
+        version: Int
+    ): SyncableEntity {
+        return copy(
+            syncStatus = syncStatus,
+            lastModified = lastModified,
+            version = version
+        )
+    }
+    
+    override fun isConflictWith(other: SyncableEntity): Boolean {
+        return other is ChecklistEntity &&
+               other.getEntityId() == getEntityId() &&
+               other.getLastModifiedTime() != getLastModifiedTime() &&
+               other.getVersion() != getVersion()
+    }
+}
 
 /**
  * Room entity for ChecklistItem
@@ -117,7 +166,31 @@ data class ChecklistItemEntity(
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     val lastModified: Instant = createdAt,
     val version: Int = 1
-)
+) : SyncableEntity {
+    override fun getEntityId(): String = id.toString()
+    override fun getLastModifiedTime(): Instant = lastModified
+    override fun getVersion(): Int = version
+    override fun getSyncStatus(): SyncStatus = syncStatus
+    
+    override fun withUpdatedSync(
+        syncStatus: SyncStatus,
+        lastModified: Instant,
+        version: Int
+    ): SyncableEntity {
+        return copy(
+            syncStatus = syncStatus,
+            lastModified = lastModified,
+            version = version
+        )
+    }
+    
+    override fun isConflictWith(other: SyncableEntity): Boolean {
+        return other is ChecklistItemEntity &&
+               other.getEntityId() == getEntityId() &&
+               other.getLastModifiedTime() != getLastModifiedTime() &&
+               other.getVersion() != getVersion()
+    }
+}
 
 /**
  * Room entity for ChecklistExecution (ChecklistAusfuehrung)
@@ -165,7 +238,31 @@ data class ChecklistExecutionEntity(
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     val lastModified: Instant,
     val version: Int = 1
-)
+) : SyncableEntity {
+    override fun getEntityId(): String = id.toString()
+    override fun getLastModifiedTime(): Instant = lastModified
+    override fun getVersion(): Int = version
+    override fun getSyncStatus(): SyncStatus = syncStatus
+    
+    override fun withUpdatedSync(
+        syncStatus: SyncStatus,
+        lastModified: Instant,
+        version: Int
+    ): SyncableEntity {
+        return copy(
+            syncStatus = syncStatus,
+            lastModified = lastModified,
+            version = version
+        )
+    }
+    
+    override fun isConflictWith(other: SyncableEntity): Boolean {
+        return other is ChecklistExecutionEntity &&
+               other.getEntityId() == getEntityId() &&
+               other.getLastModifiedTime() != getLastModifiedTime() &&
+               other.getVersion() != getVersion()
+    }
+}
 
 /**
  * Room entity for ItemResult (ItemErgebnis)
@@ -210,4 +307,28 @@ data class ItemResultEntity(
     val syncStatus: SyncStatus = SyncStatus.SYNCED,
     val lastModified: Instant = createdAt,
     val version: Int = 1
-)
+) : SyncableEntity {
+    override fun getEntityId(): String = id.toString()
+    override fun getLastModifiedTime(): Instant = lastModified
+    override fun getVersion(): Int = version
+    override fun getSyncStatus(): SyncStatus = syncStatus
+    
+    override fun withUpdatedSync(
+        syncStatus: SyncStatus,
+        lastModified: Instant,
+        version: Int
+    ): SyncableEntity {
+        return copy(
+            syncStatus = syncStatus,
+            lastModified = lastModified,
+            version = version
+        )
+    }
+    
+    override fun isConflictWith(other: SyncableEntity): Boolean {
+        return other is ItemResultEntity &&
+               other.getEntityId() == getEntityId() &&
+               other.getLastModifiedTime() != getLastModifiedTime() &&
+               other.getVersion() != getVersion()
+    }
+}

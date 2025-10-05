@@ -46,6 +46,12 @@ interface VehicleRepository {
     suspend fun syncVehicles(): Result<Unit>
     
     /**
+     * Upload pending local vehicle changes to remote
+     * @return Result with success/failure information
+     */
+    suspend fun uploadPendingVehicles(): Result<Unit>
+    
+    /**
      * Get all vehicle groups
      * @return Flow of vehicle groups
      */
